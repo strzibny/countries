@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { GlobeViewer } from '@/components/globe/globe-viewer'
 import { CountryPanel } from '@/components/globe/country-panel'
 import { SavePromptDialog } from '@/components/globe/save-prompt-dialog'
+import { AuthDialog } from '@/components/auth/auth-dialog'
 import { useUnsavedSelections } from '@/hooks/use-unsaved-selections'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
@@ -29,6 +30,8 @@ export default function Home() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [showPanel, setShowPanel] = useState(false)
   const [pendingSave, setPendingSave] = useState(false)
+  const [showAuthDialog, setShowAuthDialog] = useState(false)
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
 
   // Check if we should auto-save after login
   useEffect(() => {
@@ -117,12 +120,19 @@ export default function Home() {
                 </Link>
               ) : (
                 <>
-                  <Link href="/login">
-                    <Button variant="ghost" className="text-white hover:bg-white/10">Sign in</Button>
-                  </Link>
-                  <Link href="/register">
-                    <Button className="bg-blue-600 hover:bg-blue-700">Get started</Button>
-                  </Link>
+                  <Button
+                    variant="ghost"
+                    className="text-white hover:bg-white hover:text-gray-900"
+                    onClick={() => { setAuthMode('signin'); setShowAuthDialog(true) }}
+                  >
+                    Sign in
+                  </Button>
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700"
+                    onClick={() => { setAuthMode('signup'); setShowAuthDialog(true) }}
+                  >
+                    Get started
+                  </Button>
                 </>
               )}
             </div>
@@ -219,6 +229,13 @@ export default function Home() {
         onOpenChange={setShowSaveDialog}
         onSave={handleSaveList}
         countryCount={selections.length}
+      />
+
+      {/* Auth Dialog */}
+      <AuthDialog
+        open={showAuthDialog}
+        onOpenChange={setShowAuthDialog}
+        mode={authMode}
       />
     </div>
   )
