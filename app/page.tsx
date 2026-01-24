@@ -201,7 +201,7 @@ export default function Home() {
 
         {/* Bottom CTA */}
         {selections.length > 0 && !showPanel && (
-          <div className="absolute bottom-6 left-6 z-10">
+          <div className="absolute bottom-6 left-32 z-10">
             <Button
               size="lg"
               className="bg-blue-600 hover:bg-blue-700 shadow-lg"

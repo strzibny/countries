@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import dynamic from 'next/dynamic'
+import { Plus, Minus, RotateCcw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 // Dynamically import react-globe.gl with SSR disabled
 const Globe = dynamic(() => import('react-globe.gl'), {
@@ -85,16 +87,54 @@ export function GlobeViewer({ selectedCountries, onCountryClick, className = '' 
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
 
-  // Auto-rotate globe
+  // Auto-rotate globe and set zoom limits
   useEffect(() => {
     if (globeRef.current) {
       const controls = globeRef.current.controls?.()
       if (controls) {
         controls.autoRotate = true
         controls.autoRotateSpeed = 0.5
+        controls.minDistance = 150 // Closest zoom
+        controls.maxDistance = 500 // Farthest zoom
       }
     }
   }, [countries])
+
+  const handleZoomIn = useCallback(() => {
+    if (globeRef.current) {
+      const camera = globeRef.current.camera?.()
+      if (camera) {
+        const currentDistance = camera.position.length()
+        const newDistance = Math.max(150, currentDistance * 0.8)
+        const scale = newDistance / currentDistance
+        camera.position.multiplyScalar(scale)
+      }
+    }
+  }, [])
+
+  const handleZoomOut = useCallback(() => {
+    if (globeRef.current) {
+      const camera = globeRef.current.camera?.()
+      if (camera) {
+        const currentDistance = camera.position.length()
+        const newDistance = Math.min(500, currentDistance * 1.25)
+        const scale = newDistance / currentDistance
+        camera.position.multiplyScalar(scale)
+      }
+    }
+  }, [])
+
+  const handleResetView = useCallback(() => {
+    if (globeRef.current) {
+      const camera = globeRef.current.camera?.()
+      if (camera) {
+        const currentDistance = camera.position.length()
+        const defaultDistance = 300
+        const scale = defaultDistance / currentDistance
+        camera.position.multiplyScalar(scale)
+      }
+    }
+  }, [])
 
   const handlePolygonClick = useCallback((polygon: object | null) => {
     if (polygon && 'properties' in polygon) {
@@ -181,6 +221,37 @@ export function GlobeViewer({ selectedCountries, onCountryClick, className = '' 
         atmosphereColor="rgba(99, 102, 241, 0.3)"
         atmosphereAltitude={0.15}
       />
+
+      {/* Zoom Controls */}
+      <div className="absolute bottom-6 left-6 flex flex-col gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 bg-white/90 hover:bg-white border-gray-200 shadow-lg"
+          onClick={handleZoomIn}
+          title="Zoom in"
+        >
+          <Plus className="h-5 w-5 text-gray-700" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 bg-white/90 hover:bg-white border-gray-200 shadow-lg"
+          onClick={handleZoomOut}
+          title="Zoom out"
+        >
+          <Minus className="h-5 w-5 text-gray-700" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 bg-white/90 hover:bg-white border-gray-200 shadow-lg"
+          onClick={handleResetView}
+          title="Reset view"
+        >
+          <RotateCcw className="h-4 w-4 text-gray-700" />
+        </Button>
+      </div>
     </div>
   )
 }
