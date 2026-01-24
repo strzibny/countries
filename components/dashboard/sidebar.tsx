@@ -9,7 +9,8 @@ import {
   X,
   LogOut,
   PanelLeftClose,
-  Home
+  Home,
+  Globe
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,7 @@ import {
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'My Lists', href: '/lists', icon: Globe },
 ]
 
 const secondaryNavigation = [

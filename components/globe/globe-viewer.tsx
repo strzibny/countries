@@ -1,0 +1,186 @@
+"use client"
+
+import { useEffect, useRef, useState, useCallback } from 'react'
+import dynamic from 'next/dynamic'
+
+// Dynamically import react-globe.gl with SSR disabled
+const Globe = dynamic(() => import('react-globe.gl'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-gray-900 rounded-lg">
+      <div className="text-white">Loading globe...</div>
+    </div>
+  ),
+})
+
+interface GlobeViewerProps {
+  selectedCountries: string[]
+  onCountryClick: (countryCode: string, countryName: string) => void
+  className?: string
+}
+
+interface GeoProperties {
+  'ISO3166-1-Alpha-2'?: string
+  ISO_A2?: string
+  name?: string
+  ADMIN?: string
+  NAME?: string
+}
+
+interface GeoFeature {
+  type: string
+  properties: GeoProperties
+  geometry: {
+    type: string
+    coordinates: number[][][] | number[][][][]
+  }
+}
+
+interface GeoJSON {
+  type: string
+  features: GeoFeature[]
+}
+
+// Helper to get country code from various GeoJSON formats
+function getCountryCode(properties: GeoProperties | undefined): string {
+  if (!properties) return ''
+  return properties['ISO3166-1-Alpha-2'] || properties.ISO_A2 || ''
+}
+
+// Helper to get country name from various GeoJSON formats
+function getCountryName(properties: GeoProperties | undefined): string {
+  if (!properties) return 'Unknown'
+  return properties.name || properties.ADMIN || properties.NAME || 'Unknown'
+}
+
+export function GlobeViewer({ selectedCountries, onCountryClick, className = '' }: GlobeViewerProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const globeRef = useRef<any>(null)
+  const [countries, setCountries] = useState<GeoJSON | null>(null)
+  const [hoverCountry, setHoverCountry] = useState<GeoFeature | null>(null)
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Load country data
+  useEffect(() => {
+    fetch('/data/countries.geojson')
+      .then(res => res.json())
+      .then(data => setCountries(data))
+      .catch(err => console.error('Error loading country data:', err))
+  }, [])
+
+  // Handle resize
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        setDimensions({
+          width: containerRef.current.offsetWidth,
+          height: containerRef.current.offsetHeight,
+        })
+      }
+    }
+
+    updateDimensions()
+    window.addEventListener('resize', updateDimensions)
+    return () => window.removeEventListener('resize', updateDimensions)
+  }, [])
+
+  // Auto-rotate globe
+  useEffect(() => {
+    if (globeRef.current) {
+      const controls = globeRef.current.controls?.()
+      if (controls) {
+        controls.autoRotate = true
+        controls.autoRotateSpeed = 0.5
+      }
+    }
+  }, [countries])
+
+  const handlePolygonClick = useCallback((polygon: object | null) => {
+    if (polygon && 'properties' in polygon) {
+      const feature = polygon as GeoFeature
+      const countryCode = getCountryCode(feature.properties)
+      const countryName = getCountryName(feature.properties)
+      if (countryCode && countryCode !== '-99') {
+        onCountryClick(countryCode, countryName)
+      }
+    }
+  }, [onCountryClick])
+
+  const getPolygonColor = useCallback((obj: object) => {
+    const feature = obj as GeoFeature
+    const countryCode = getCountryCode(feature.properties)
+    if (selectedCountries.includes(countryCode)) {
+      return 'rgba(59, 130, 246, 0.8)' // Blue for selected
+    }
+    if (hoverCountry && getCountryCode(hoverCountry.properties) === countryCode) {
+      return 'rgba(156, 163, 175, 0.6)' // Gray for hover
+    }
+    return 'rgba(75, 85, 99, 0.4)' // Default gray
+  }, [selectedCountries, hoverCountry])
+
+  const getPolygonAltitude = useCallback((obj: object) => {
+    const feature = obj as GeoFeature
+    const countryCode = getCountryCode(feature.properties)
+    if (selectedCountries.includes(countryCode)) {
+      return 0.04 // Elevated for selected
+    }
+    if (hoverCountry && getCountryCode(hoverCountry.properties) === countryCode) {
+      return 0.02 // Slightly elevated for hover
+    }
+    return 0.01 // Default
+  }, [selectedCountries, hoverCountry])
+
+  const getPolygonLabel = useCallback((obj: object) => {
+    const d = obj as GeoFeature
+    const name = getCountryName(d.properties)
+    const code = getCountryCode(d.properties)
+    const isSelected = selectedCountries.includes(code)
+    return `
+      <div class="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg">
+        <div class="font-medium">${name}</div>
+        <div class="text-xs text-gray-400">${code}</div>
+        ${isSelected ? '<div class="text-xs text-blue-400 mt-1">Selected</div>' : ''}
+      </div>
+    `
+  }, [selectedCountries])
+
+  const handlePolygonHover = useCallback((polygon: object | null) => {
+    if (polygon && 'properties' in polygon) {
+      setHoverCountry(polygon as GeoFeature)
+    } else {
+      setHoverCountry(null)
+    }
+  }, [])
+
+  if (!countries) {
+    return (
+      <div className={`w-full h-full flex items-center justify-center bg-gray-900 rounded-lg ${className}`}>
+        <div className="text-white">Loading globe...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div ref={containerRef} className={`w-full h-full relative ${className}`}>
+      <Globe
+        ref={globeRef}
+        width={dimensions.width || 800}
+        height={dimensions.height || 600}
+        backgroundColor="rgba(0,0,0,0)"
+        globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
+        polygonsData={countries.features}
+        polygonCapColor={getPolygonColor}
+        polygonSideColor={() => 'rgba(75, 85, 99, 0.2)'}
+        polygonStrokeColor={() => 'rgba(255, 255, 255, 0.1)'}
+        polygonAltitude={getPolygonAltitude}
+        polygonLabel={getPolygonLabel}
+        onPolygonClick={handlePolygonClick}
+        onPolygonHover={handlePolygonHover}
+        polygonsTransitionDuration={300}
+        atmosphereColor="rgba(99, 102, 241, 0.3)"
+        atmosphereAltitude={0.15}
+      />
+    </div>
+  )
+}

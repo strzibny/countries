@@ -11,11 +11,8 @@ interface AuthContextType {
   profile: Profile | null
   session: Session | null
   isLoading: boolean
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  signInWithGoogle: () => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
-  resetPassword: (email: string) => Promise<{ error: Error | null }>
-  updatePassword: (newPassword: string) => Promise<{ error: Error | null }>
   refreshProfile: () => Promise<void>
 }
 
@@ -87,6 +84,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null)
         }
 
+        if (event === 'SIGNED_IN') {
+          router.push('/dashboard')
+        }
+
         if (event === 'SIGNED_OUT') {
           router.push('/')
         }
@@ -96,38 +97,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [supabase, fetchProfile, router])
 
-  const signUp = async (email: string, password: string, fullName?: string) => {
+  const signInWithGoogle = async () => {
     if (!supabase) {
       return { error: new Error('Supabase client not initialized') }
     }
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
       options: {
-        data: {
-          full_name: fullName || '',
-        },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     })
-
-    return { error: error ? new Error(error.message) : null }
-  }
-
-  const signIn = async (email: string, password: string) => {
-    if (!supabase) {
-      return { error: new Error('Supabase client not initialized') }
-    }
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (!error) {
-      router.push('/dashboard')
-    }
 
     return { error: error ? new Error(error.message) : null }
   }
@@ -147,30 +127,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/')
   }
 
-  const resetPassword = async (email: string) => {
-    if (!supabase) {
-      return { error: new Error('Supabase client not initialized') }
-    }
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
-
-    return { error: error ? new Error(error.message) : null }
-  }
-
-  const updatePassword = async (newPassword: string) => {
-    if (!supabase) {
-      return { error: new Error('Supabase client not initialized') }
-    }
-
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    })
-
-    return { error: error ? new Error(error.message) : null }
-  }
-
   return (
     <AuthContext.Provider
       value={{
@@ -178,11 +134,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile,
         session,
         isLoading,
-        signUp,
-        signIn,
+        signInWithGoogle,
         signOut,
-        resetPassword,
-        updatePassword,
         refreshProfile,
       }}
     >
