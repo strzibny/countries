@@ -1,9 +1,16 @@
 "use client"
 
 import { useState, useCallback, useEffect } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { GlobeViewer } from '@/components/globe/globe-viewer'
 import { CountryPanel } from '@/components/globe/country-panel'
 import { SavePromptDialog } from '@/components/globe/save-prompt-dialog'
@@ -11,7 +18,11 @@ import { AuthDialog } from '@/components/auth/auth-dialog'
 import { useUnsavedSelections } from '@/hooks/use-unsaved-selections'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
-import { Globe, ChevronRight, X } from 'lucide-react'
+import { Globe, ChevronRight, X, LogOut, List, Plus, Trash2, ChevronLeft } from 'lucide-react'
+import { CountryListWithCount, CountryListWithCountries, UnsavedCountrySelection } from '@/types/database'
+import { ScrollArea } from '@/components/ui/scroll-area'
+
+type PanelView = 'none' | 'selection' | 'lists' | 'list-detail'
 
 export default function Home() {
   const {
@@ -23,15 +34,146 @@ export default function Home() {
     isHydrated,
   } = useUnsavedSelections()
 
-  const { user, isLoading: isAuthLoading } = useAuth()
+  const { user, profile, signOut, isLoading: isAuthLoading } = useAuth()
   const { toast } = useToast()
-  const router = useRouter()
 
   const [showSaveDialog, setShowSaveDialog] = useState(false)
-  const [showPanel, setShowPanel] = useState(false)
+  const [panelView, setPanelView] = useState<PanelView>('none')
   const [pendingSave, setPendingSave] = useState(false)
   const [showAuthDialog, setShowAuthDialog] = useState(false)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
+
+  // Lists state
+  const [lists, setLists] = useState<CountryListWithCount[]>([])
+  const [selectedList, setSelectedList] = useState<CountryListWithCountries | null>(null)
+  const [isLoadingLists, setIsLoadingLists] = useState(false)
+  const [editingListId, setEditingListId] = useState<string | null>(null)
+  const [editSelections, setEditSelections] = useState<UnsavedCountrySelection[]>([])
+
+  // Fetch lists when user logs in
+  useEffect(() => {
+    if (user) {
+      fetchLists()
+    } else {
+      setLists([])
+      setSelectedList(null)
+      setEditingListId(null)
+    }
+  }, [user])
+
+  const fetchLists = async () => {
+    setIsLoadingLists(true)
+    try {
+      const response = await fetch('/api/lists')
+      if (response.ok) {
+        const data = await response.json()
+        setLists(data.lists || [])
+      }
+    } catch (error) {
+      console.error('Error fetching lists:', error)
+    } finally {
+      setIsLoadingLists(false)
+    }
+  }
+
+  const fetchListDetail = async (listId: string) => {
+    try {
+      const response = await fetch(`/api/lists/${listId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setSelectedList(data.list)
+        // Load countries into edit selections
+        setEditSelections(
+          data.list.countries.map((c: { country_code: string; country_name: string; notes: string | null }) => ({
+            country_code: c.country_code,
+            country_name: c.country_name,
+            notes: c.notes || '',
+          }))
+        )
+        setEditingListId(listId)
+        setPanelView('list-detail')
+      }
+    } catch (error) {
+      console.error('Error fetching list:', error)
+    }
+  }
+
+  const handleDeleteList = async (listId: string) => {
+    if (!confirm('Are you sure you want to delete this list?')) return
+
+    try {
+      const response = await fetch(`/api/lists/${listId}`, { method: 'DELETE' })
+      if (response.ok) {
+        setLists(lists.filter(l => l.id !== listId))
+        if (editingListId === listId) {
+          setEditingListId(null)
+          setSelectedList(null)
+          setEditSelections([])
+          setPanelView('lists')
+        }
+        toast({ title: 'List deleted' })
+      }
+    } catch (error) {
+      console.error('Error deleting list:', error)
+      toast({ title: 'Error', description: 'Failed to delete list', variant: 'destructive' })
+    }
+  }
+
+  const handleSaveListChanges = async () => {
+    if (!selectedList || !editingListId) return
+
+    try {
+      // Get current countries from DB
+      const currentCodes = new Set(selectedList.countries.map(c => c.country_code))
+      const newCodes = new Set(editSelections.map(c => c.country_code))
+
+      const toAdd = editSelections.filter(s => !currentCodes.has(s.country_code))
+      const toRemove = selectedList.countries.filter(c => !newCodes.has(c.country_code))
+      const toUpdate = editSelections.filter(s => {
+        const existing = selectedList.countries.find(c => c.country_code === s.country_code)
+        return existing && existing.notes !== s.notes
+      })
+
+      const operations: Promise<Response>[] = []
+
+      for (const country of toAdd) {
+        operations.push(
+          fetch(`/api/lists/${editingListId}/countries`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(country),
+          })
+        )
+      }
+
+      for (const country of toRemove) {
+        operations.push(
+          fetch(`/api/lists/${editingListId}/countries/${country.id}`, { method: 'DELETE' })
+        )
+      }
+
+      for (const country of toUpdate) {
+        const existing = selectedList.countries.find(c => c.country_code === country.country_code)
+        if (existing) {
+          operations.push(
+            fetch(`/api/lists/${editingListId}/countries/${existing.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ notes: country.notes }),
+            })
+          )
+        }
+      }
+
+      await Promise.all(operations)
+      toast({ title: 'Changes saved' })
+      fetchLists()
+      fetchListDetail(editingListId)
+    } catch (error) {
+      console.error('Error saving changes:', error)
+      toast({ title: 'Error', description: 'Failed to save changes', variant: 'destructive' })
+    }
+  }
 
   // Check if we should auto-save after login
   useEffect(() => {
@@ -53,13 +195,25 @@ export default function Home() {
   }, [isHydrated])
 
   const handleCountryClick = useCallback((countryCode: string, countryName: string) => {
-    toggleCountry(countryCode, countryName)
-    setShowPanel(true)
-  }, [toggleCountry])
+    if (editingListId) {
+      // Editing existing list
+      setEditSelections(prev => {
+        const exists = prev.some(c => c.country_code === countryCode)
+        if (exists) {
+          return prev.filter(c => c.country_code !== countryCode)
+        }
+        return [...prev, { country_code: countryCode, country_name: countryName, notes: '' }]
+      })
+      setPanelView('list-detail')
+    } else {
+      // New selection
+      toggleCountry(countryCode, countryName)
+      setPanelView('selection')
+    }
+  }, [toggleCountry, editingListId])
 
   const handleSaveClick = () => {
     if (!user) {
-      // Set flag to show save dialog after login
       sessionStorage.setItem('pending_save', 'true')
     }
     setShowSaveDialog(true)
@@ -79,15 +233,14 @@ export default function Home() {
 
       if (!response.ok) throw new Error('Failed to create list')
 
-      const data = await response.json()
-
       toast({
         title: 'List saved!',
         description: `"${name}" has been created with ${selections.length} countries`,
       })
 
       clearSelections()
-      router.push(`/lists/${data.list.id}`)
+      fetchLists()
+      setPanelView('lists')
     } catch (error) {
       console.error('Error saving list:', error)
       toast({
@@ -98,6 +251,25 @@ export default function Home() {
       throw error
     }
   }
+
+  const handleNewList = () => {
+    setEditingListId(null)
+    setSelectedList(null)
+    setEditSelections([])
+    clearSelections()
+    setPanelView('none')
+    toast({ title: 'Start selecting countries for your new list' })
+  }
+
+  const handleBackToLists = () => {
+    setEditingListId(null)
+    setSelectedList(null)
+    setEditSelections([])
+    setPanelView('lists')
+  }
+
+  // Determine which countries to show on globe
+  const displayedCountries = editingListId ? editSelections.map(s => s.country_code) : selections.map(s => s.country_code)
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-gray-900">
@@ -113,11 +285,44 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-4">
               {user ? (
-                <Link href="/dashboard">
-                  <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
-                    Dashboard
+                <>
+                  <Button
+                    variant="outline"
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                    onClick={() => setPanelView(panelView === 'lists' ? 'none' : 'lists')}
+                  >
+                    <List className="h-4 w-4 mr-2" />
+                    My Lists
                   </Button>
-                </Link>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                        <Avatar className="h-9 w-9 border-2 border-white/20">
+                          <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || 'User'} />
+                          <AvatarFallback className="bg-blue-600 text-white">
+                            {getInitials(profile?.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56" align="end">
+                      <DropdownMenuLabel className="font-normal">
+                        <div className="flex flex-col space-y-1">
+                          <p className="text-sm font-medium leading-none">{profile?.full_name || 'User'}</p>
+                          <p className="text-xs leading-none text-gray-500">{profile?.email}</p>
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="cursor-pointer text-red-600 focus:text-red-600"
+                        onClick={() => signOut()}
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Log out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
               ) : (
                 <>
                   <Button
@@ -143,15 +348,15 @@ export default function Home() {
       {/* Globe Section */}
       <div className="h-full w-full relative">
         <GlobeViewer
-          selectedCountries={selections.map(s => s.country_code)}
+          selectedCountries={displayedCountries}
           onCountryClick={handleCountryClick}
           className="absolute inset-0"
         />
 
-        {/* Floating info panel (collapsed) */}
-        {!showPanel && selections.length > 0 && (
+        {/* Floating info panel (collapsed) - for new selections only */}
+        {panelView === 'none' && !editingListId && selections.length > 0 && (
           <button
-            onClick={() => setShowPanel(true)}
+            onClick={() => setPanelView('selection')}
             className="absolute bottom-6 right-6 z-10 bg-white rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 hover:shadow-xl transition-shadow"
           >
             <div className="flex -space-x-2">
@@ -171,8 +376,8 @@ export default function Home() {
           </button>
         )}
 
-        {/* Instructions overlay (when no selections) */}
-        {selections.length === 0 && isHydrated && (
+        {/* Instructions overlay (when no selections and not editing) */}
+        {selections.length === 0 && !editingListId && isHydrated && panelView !== 'lists' && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg px-6 py-4 text-center">
             <h2 className="text-lg font-semibold text-gray-900 mb-1">
               Create your country list
@@ -183,17 +388,12 @@ export default function Home() {
           </div>
         )}
 
-        {/* Side panel */}
-        {showPanel && (
+        {/* Side panel - Selection */}
+        {panelView === 'selection' && !editingListId && (
           <div className="absolute top-16 right-0 w-80 z-10 bg-white shadow-xl flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
               <h3 className="font-medium text-gray-900">Your Selection</h3>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setShowPanel(false)}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPanelView('none')}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -209,8 +409,109 @@ export default function Home() {
           </div>
         )}
 
-        {/* Bottom CTA */}
-        {selections.length > 0 && !showPanel && (
+        {/* Side panel - Lists */}
+        {panelView === 'lists' && (
+          <div className="absolute top-16 right-0 w-80 z-10 bg-white shadow-xl flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h3 className="font-medium text-gray-900">My Lists</h3>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPanelView('none')}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-4 border-b border-gray-200">
+              <Button className="w-full" onClick={handleNewList}>
+                <Plus className="h-4 w-4 mr-2" />
+                New List
+              </Button>
+            </div>
+            <ScrollArea className="flex-1">
+              {isLoadingLists ? (
+                <div className="p-4 text-center text-gray-500">Loading...</div>
+              ) : lists.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">No lists yet</div>
+              ) : (
+                <div className="p-2 space-y-2">
+                  {lists.map((list) => (
+                    <div
+                      key={list.id}
+                      className="p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-colors group"
+                      onClick={() => fetchListDetail(list.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">{list.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {list.country_count} {list.country_count === 1 ? 'country' : 'countries'}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteList(list.id) }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        )}
+
+        {/* Side panel - List Detail/Edit */}
+        {panelView === 'list-detail' && selectedList && (
+          <div className="absolute top-16 right-0 w-80 z-10 bg-white shadow-xl flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleBackToLists}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex-1">
+                <h3 className="font-medium text-gray-900">{selectedList.name}</h3>
+                <p className="text-xs text-gray-500">{editSelections.length} countries</p>
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPanelView('none')}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <ScrollArea className="flex-1 px-4">
+              <div className="space-y-3 py-4">
+                {editSelections.length === 0 ? (
+                  <p className="text-center text-gray-500 text-sm">Click countries on the globe to add them</p>
+                ) : (
+                  editSelections.map((country) => (
+                    <div key={country.country_code} className="bg-gray-50 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{getFlagEmoji(country.country_code)}</span>
+                          <span className="font-medium text-gray-900 text-sm">{country.country_name}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-gray-400 hover:text-red-500"
+                          onClick={() => setEditSelections(prev => prev.filter(c => c.country_code !== country.country_code))}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+            <div className="p-4 border-t border-gray-200">
+              <Button className="w-full" onClick={handleSaveListChanges}>
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Bottom CTA - for new selections only */}
+        {selections.length > 0 && !editingListId && panelView !== 'selection' && (
           <div className="absolute bottom-6 left-32 z-10">
             <Button
               size="lg"
@@ -248,4 +549,14 @@ function getFlagEmoji(countryCode: string): string {
     .split('')
     .map(char => 127397 + char.charCodeAt(0))
   return String.fromCodePoint(...codePoints)
+}
+
+function getInitials(name: string | null | undefined): string {
+  if (!name) return 'U'
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
 }

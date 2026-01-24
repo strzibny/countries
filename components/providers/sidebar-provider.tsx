@@ -38,11 +38,6 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     setIsCollapsed(collapsed)
   }
 
-  // Prevent hydration mismatch by not rendering until hydrated
-  if (!isHydrated) {
-    return <>{children}</>
-  }
-
   return (
     <SidebarContext.Provider value={{ isCollapsed, toggleCollapse, setCollapsed }}>
       {children}

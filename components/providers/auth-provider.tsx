@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (event === 'SIGNED_IN') {
-          router.push('/dashboard')
+          router.push('/')
         }
 
         if (event === 'SIGNED_OUT') {
