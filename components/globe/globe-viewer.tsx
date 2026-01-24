@@ -71,15 +71,13 @@ export function GlobeViewer({ selectedCountries, onCountryClick, className = '' 
       .catch(err => console.error('Error loading country data:', err))
   }, [])
 
-  // Handle resize
+  // Handle resize - use window dimensions for full viewport coverage
   useEffect(() => {
     const updateDimensions = () => {
-      if (containerRef.current) {
-        setDimensions({
-          width: containerRef.current.offsetWidth,
-          height: containerRef.current.offsetHeight,
-        })
-      }
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      })
     }
 
     updateDimensions()
@@ -151,12 +149,12 @@ export function GlobeViewer({ selectedCountries, onCountryClick, className = '' 
     const feature = obj as GeoFeature
     const countryCode = getCountryCode(feature.properties)
     if (selectedCountries.includes(countryCode)) {
-      return 'rgba(59, 130, 246, 0.8)' // Blue for selected
+      return 'rgba(96, 165, 250, 0.9)' // Bright blue for selected
     }
     if (hoverCountry && getCountryCode(hoverCountry.properties) === countryCode) {
-      return 'rgba(156, 163, 175, 0.6)' // Gray for hover
+      return 'rgba(209, 213, 219, 0.7)' // Bright gray for hover
     }
-    return 'rgba(75, 85, 99, 0.4)' // Default gray
+    return 'rgba(134, 148, 168, 0.6)' // Brighter default gray
   }, [selectedCountries, hoverCountry])
 
   const getPolygonAltitude = useCallback((obj: object) => {
@@ -211,15 +209,15 @@ export function GlobeViewer({ selectedCountries, onCountryClick, className = '' 
         globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
         polygonsData={countries.features}
         polygonCapColor={getPolygonColor}
-        polygonSideColor={() => 'rgba(75, 85, 99, 0.2)'}
-        polygonStrokeColor={() => 'rgba(255, 255, 255, 0.1)'}
+        polygonSideColor={() => 'rgba(134, 148, 168, 0.4)'}
+        polygonStrokeColor={() => 'rgba(255, 255, 255, 0.25)'}
         polygonAltitude={getPolygonAltitude}
         polygonLabel={getPolygonLabel}
         onPolygonClick={handlePolygonClick}
         onPolygonHover={handlePolygonHover}
         polygonsTransitionDuration={300}
-        atmosphereColor="rgba(99, 102, 241, 0.3)"
-        atmosphereAltitude={0.15}
+        atmosphereColor="rgba(129, 140, 248, 0.5)"
+        atmosphereAltitude={0.18}
       />
 
       {/* Zoom Controls */}

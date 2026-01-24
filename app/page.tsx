@@ -97,7 +97,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
+    <div className="h-screen w-screen overflow-hidden bg-gray-900">
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-gray-900/80 to-transparent">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -131,7 +131,7 @@ export default function Home() {
       </header>
 
       {/* Globe Section */}
-      <div className="flex-1 relative">
+      <div className="h-full w-full relative">
         <GlobeViewer
           selectedCountries={selections.map(s => s.country_code)}
           onCountryClick={handleCountryClick}
@@ -175,7 +175,7 @@ export default function Home() {
 
         {/* Side panel */}
         {showPanel && (
-          <div className="absolute top-16 bottom-0 right-0 w-80 z-10 bg-white shadow-xl flex flex-col">
+          <div className="absolute top-16 right-0 w-80 z-10 bg-white shadow-xl flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
               <h3 className="font-medium text-gray-900">Your Selection</h3>
               <Button
