@@ -275,8 +275,7 @@ export default function Home() {
     <div className="h-screen w-screen overflow-hidden bg-gray-900">
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-gray-900/80 to-transparent">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
+        <div className="flex h-16 items-center justify-between px-6">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
                 <Globe className="h-4 w-4 text-white" />
@@ -288,8 +287,12 @@ export default function Home() {
                 <>
                   <Button
                     variant="outline"
-                    className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-                    onClick={() => setPanelView(panelView === 'lists' ? 'none' : 'lists')}
+                    className={`border-white/20 ${
+                      panelView === 'lists' || panelView === 'list-detail'
+                        ? 'bg-white text-gray-900'
+                        : 'bg-white/10 text-white hover:bg-white hover:text-gray-900'
+                    }`}
+                    onClick={() => setPanelView(panelView === 'lists' || panelView === 'list-detail' ? 'none' : 'lists')}
                   >
                     <List className="h-4 w-4 mr-2" />
                     My Lists
@@ -341,7 +344,6 @@ export default function Home() {
                 </>
               )}
             </div>
-          </div>
         </div>
       </header>
 
