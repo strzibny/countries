@@ -159,6 +159,7 @@ CREATE TABLE public.list_countries (
   country_code CHAR(2) NOT NULL,
   country_name TEXT NOT NULL,
   notes TEXT,
+  color TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(list_id, country_code)

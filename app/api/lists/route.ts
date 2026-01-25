@@ -86,11 +86,12 @@ export async function POST(request: Request) {
 
     // If countries are provided, add them to the list
     if (countries && Array.isArray(countries) && countries.length > 0) {
-      const countriesToInsert = countries.map((country: { country_code: string; country_name: string; notes?: string }) => ({
+      const countriesToInsert = countries.map((country: { country_code: string; country_name: string; notes?: string; color?: string }) => ({
         list_id: list.id,
         country_code: country.country_code,
         country_name: country.country_name,
         notes: country.notes || null,
+        color: country.color || null,
       }))
 
       const { error: countriesError } = await supabase

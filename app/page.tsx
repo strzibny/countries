@@ -18,19 +18,27 @@ import { AuthDialog } from '@/components/auth/auth-dialog'
 import { useUnsavedSelections } from '@/hooks/use-unsaved-selections'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
-import { Globe, ChevronRight, X, LogOut, List, Plus, Trash2, ChevronLeft } from 'lucide-react'
-import { CountryListWithCount, CountryListWithCountries, UnsavedCountrySelection } from '@/types/database'
+import { Globe, ChevronRight, X, LogOut, List, Plus, Trash2, ChevronLeft, Check, Pencil } from 'lucide-react'
+import { CountryListWithCount, CountryListWithCountries, UnsavedCountrySelection, CountryGroup, DEFAULT_COLOR, GROUP_COLORS } from '@/types/database'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Input } from '@/components/ui/input'
 
 type PanelView = 'none' | 'selection' | 'lists' | 'list-detail'
 
 export default function Home() {
   const {
     selections,
+    groups,
+    addGroup,
+    updateGroup,
+    removeGroup,
+    addCountry,
     toggleCountry,
     removeCountry,
     updateNotes,
+    updateCountryGroup,
     clearSelections,
+    isSelected,
     isHydrated,
   } = useUnsavedSelections()
 
@@ -49,6 +57,10 @@ export default function Home() {
   const [isLoadingLists, setIsLoadingLists] = useState(false)
   const [editingListId, setEditingListId] = useState<string | null>(null)
   const [editSelections, setEditSelections] = useState<UnsavedCountrySelection[]>([])
+  const [editGroups, setEditGroups] = useState<CountryGroup[]>([])
+
+  // Group selector popup state
+  const [pendingCountry, setPendingCountry] = useState<{ code: string; name: string } | null>(null)
 
   // Fetch lists when user logs in
   useEffect(() => {
@@ -84,10 +96,12 @@ export default function Home() {
         setSelectedList(data.list)
         // Load countries into edit selections
         setEditSelections(
-          data.list.countries.map((c: { country_code: string; country_name: string; notes: string | null }) => ({
+          data.list.countries.map((c: { country_code: string; country_name: string; notes: string | null; color: string | null }) => ({
             country_code: c.country_code,
             country_name: c.country_name,
             notes: c.notes || '',
+            color: c.color || DEFAULT_COLOR,
+            group_id: null,
           }))
         )
         setEditingListId(listId)
@@ -131,7 +145,7 @@ export default function Home() {
       const toRemove = selectedList.countries.filter(c => !newCodes.has(c.country_code))
       const toUpdate = editSelections.filter(s => {
         const existing = selectedList.countries.find(c => c.country_code === s.country_code)
-        return existing && existing.notes !== s.notes
+        return existing && (existing.notes !== s.notes || existing.color !== s.color)
       })
 
       const operations: Promise<Response>[] = []
@@ -159,7 +173,7 @@ export default function Home() {
             fetch(`/api/lists/${editingListId}/countries/${existing.id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ notes: country.notes }),
+              body: JSON.stringify({ notes: country.notes, color: country.color }),
             })
           )
         }
@@ -197,20 +211,56 @@ export default function Home() {
   const handleCountryClick = useCallback((countryCode: string, countryName: string) => {
     if (editingListId) {
       // Editing existing list
-      setEditSelections(prev => {
-        const exists = prev.some(c => c.country_code === countryCode)
-        if (exists) {
-          return prev.filter(c => c.country_code !== countryCode)
-        }
-        return [...prev, { country_code: countryCode, country_name: countryName, notes: '' }]
-      })
+      const exists = editSelections.some(c => c.country_code === countryCode)
+      if (exists) {
+        setEditSelections(prev => prev.filter(c => c.country_code !== countryCode))
+      } else if (editGroups.length > 0) {
+        // Show group selector
+        setPendingCountry({ code: countryCode, name: countryName })
+      } else {
+        // No groups, add with default color
+        setEditSelections(prev => [...prev, {
+          country_code: countryCode,
+          country_name: countryName,
+          notes: '',
+          color: DEFAULT_COLOR,
+          group_id: null,
+        }])
+      }
       setPanelView('list-detail')
     } else {
       // New selection
-      toggleCountry(countryCode, countryName)
+      const alreadySelected = isSelected(countryCode)
+      if (alreadySelected) {
+        removeCountry(countryCode)
+      } else if (groups.length > 0) {
+        // Show group selector popup
+        setPendingCountry({ code: countryCode, name: countryName })
+      } else {
+        // No groups, add with default blue
+        addCountry(countryCode, countryName, null)
+      }
       setPanelView('selection')
     }
-  }, [toggleCountry, editingListId])
+  }, [editingListId, editSelections, editGroups, groups, isSelected, removeCountry, addCountry])
+
+  const handleSelectGroup = (groupId: string | null) => {
+    if (!pendingCountry) return
+
+    if (editingListId) {
+      const group = groupId ? editGroups.find(g => g.id === groupId) : null
+      setEditSelections(prev => [...prev, {
+        country_code: pendingCountry.code,
+        country_name: pendingCountry.name,
+        notes: '',
+        color: group?.color || DEFAULT_COLOR,
+        group_id: groupId,
+      }])
+    } else {
+      addCountry(pendingCountry.code, pendingCountry.name, groupId)
+    }
+    setPendingCountry(null)
+  }
 
   const handleSaveClick = () => {
     if (!user) {
@@ -270,6 +320,12 @@ export default function Home() {
 
   // Determine which countries to show on globe
   const displayedCountries = editingListId ? editSelections.map(s => s.country_code) : selections.map(s => s.country_code)
+
+  // Build color map for globe
+  const countryColors = (editingListId ? editSelections : selections).reduce((acc, s) => {
+    acc[s.country_code] = s.color
+    return acc
+  }, {} as Record<string, string>)
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-gray-900">
@@ -351,6 +407,7 @@ export default function Home() {
       <div className="h-full w-full relative">
         <GlobeViewer
           selectedCountries={displayedCountries}
+          countryColors={countryColors}
           onCountryClick={handleCountryClick}
           className="absolute inset-0"
         />
@@ -402,8 +459,13 @@ export default function Home() {
             <div className="flex-1 overflow-hidden">
               <CountryPanel
                 selections={selections}
+                groups={groups}
                 onRemove={removeCountry}
                 onUpdateNotes={updateNotes}
+                onUpdateCountryGroup={updateCountryGroup}
+                onAddGroup={addGroup}
+                onUpdateGroup={updateGroup}
+                onRemoveGroup={removeGroup}
                 onSave={handleSaveClick}
                 showSaveButton={selections.length > 0}
               />
@@ -465,51 +527,16 @@ export default function Home() {
 
         {/* Side panel - List Detail/Edit */}
         {panelView === 'list-detail' && selectedList && (
-          <div className="absolute top-16 right-0 w-80 z-10 bg-white shadow-xl flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleBackToLists}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <h3 className="font-medium text-gray-900">{selectedList.name}</h3>
-                <p className="text-xs text-gray-500">{editSelections.length} countries</p>
-              </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPanelView('none')}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <ScrollArea className="flex-1 px-4">
-              <div className="space-y-3 py-4">
-                {editSelections.length === 0 ? (
-                  <p className="text-center text-gray-500 text-sm">Click countries on the globe to add them</p>
-                ) : (
-                  editSelections.map((country) => (
-                    <div key={country.country_code} className="bg-gray-50 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{getFlagEmoji(country.country_code)}</span>
-                          <span className="font-medium text-gray-900 text-sm">{country.country_name}</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-gray-400 hover:text-red-500"
-                          onClick={() => setEditSelections(prev => prev.filter(c => c.country_code !== country.country_code))}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-            <div className="p-4 border-t border-gray-200">
-              <Button className="w-full" onClick={handleSaveListChanges}>
-                Save Changes
-              </Button>
-            </div>
-          </div>
+          <ListDetailPanel
+            selectedList={selectedList}
+            editSelections={editSelections}
+            setEditSelections={setEditSelections}
+            editGroups={editGroups}
+            setEditGroups={setEditGroups}
+            onBack={handleBackToLists}
+            onClose={() => setPanelView('none')}
+            onSave={handleSaveListChanges}
+          />
         )}
 
         {/* Bottom CTA - for new selections only */}
@@ -540,6 +567,380 @@ export default function Home() {
         onOpenChange={setShowAuthDialog}
         mode={authMode}
       />
+
+      {/* Group Selector Popup */}
+      {pendingCountry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setPendingCountry(null)} />
+          <div className="relative bg-white rounded-lg shadow-xl p-4 w-72">
+            <h3 className="font-medium text-gray-900 mb-1">
+              Add {pendingCountry.name}
+            </h3>
+            <p className="text-sm text-gray-500 mb-3">Select a group for this country</p>
+            <div className="space-y-2">
+              <button
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-left"
+                onClick={() => handleSelectGroup(null)}
+              >
+                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: DEFAULT_COLOR }} />
+                <span className="text-sm">No group (Blue)</span>
+              </button>
+              {(editingListId ? editGroups : groups).map((g) => (
+                <button
+                  key={g.id}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-left"
+                  onClick={() => handleSelectGroup(g.id)}
+                >
+                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: g.color }} />
+                  <span className="text-sm">{g.name}</span>
+                </button>
+              ))}
+            </div>
+            <Button
+              variant="ghost"
+              className="w-full mt-2 text-gray-500"
+              onClick={() => setPendingCountry(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// List Detail Panel Component
+interface ListDetailPanelProps {
+  selectedList: CountryListWithCountries
+  editSelections: UnsavedCountrySelection[]
+  setEditSelections: React.Dispatch<React.SetStateAction<UnsavedCountrySelection[]>>
+  editGroups: CountryGroup[]
+  setEditGroups: React.Dispatch<React.SetStateAction<CountryGroup[]>>
+  onBack: () => void
+  onClose: () => void
+  onSave: () => void
+}
+
+function ListDetailPanel({
+  selectedList,
+  editSelections,
+  setEditSelections,
+  editGroups,
+  setEditGroups,
+  onBack,
+  onClose,
+  onSave,
+}: ListDetailPanelProps) {
+  const [showAddGroup, setShowAddGroup] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [newGroupColor, setNewGroupColor] = useState(GROUP_COLORS[0].value)
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
+  const [editGroupName, setEditGroupName] = useState('')
+  const [editGroupColor, setEditGroupColor] = useState('')
+
+  const handleAddGroup = () => {
+    if (newGroupName.trim()) {
+      const newGroup: CountryGroup = {
+        id: crypto.randomUUID(),
+        name: newGroupName.trim(),
+        color: newGroupColor,
+      }
+      setEditGroups(prev => [...prev, newGroup])
+      setNewGroupName('')
+      setNewGroupColor(GROUP_COLORS[0].value)
+      setShowAddGroup(false)
+    }
+  }
+
+  const startEditGroup = (group: CountryGroup) => {
+    setEditingGroupId(group.id)
+    setEditGroupName(group.name)
+    setEditGroupColor(group.color)
+  }
+
+  const saveEditGroup = () => {
+    if (editingGroupId && editGroupName.trim()) {
+      setEditGroups(prev => prev.map(g =>
+        g.id === editingGroupId ? { ...g, name: editGroupName.trim(), color: editGroupColor } : g
+      ))
+      // Update colors for countries in this group
+      setEditSelections(prev => prev.map(c =>
+        c.group_id === editingGroupId ? { ...c, color: editGroupColor } : c
+      ))
+      setEditingGroupId(null)
+    }
+  }
+
+  const handleRemoveGroup = (groupId: string) => {
+    setEditGroups(prev => prev.filter(g => g.id !== groupId))
+    setEditSelections(prev => prev.filter(c => c.group_id !== groupId))
+  }
+
+  const handleUpdateCountryGroup = (countryCode: string, groupId: string | null) => {
+    setEditSelections(prev => prev.map(c => {
+      if (c.country_code === countryCode) {
+        const group = groupId ? editGroups.find(g => g.id === groupId) : null
+        return { ...c, group_id: groupId, color: group?.color || DEFAULT_COLOR }
+      }
+      return c
+    }))
+  }
+
+  // Group countries by their group_id
+  const ungroupedCountries = editSelections.filter(s => !s.group_id)
+  const groupedCountries = editGroups.map(group => ({
+    group,
+    countries: editSelections.filter(s => s.group_id === group.id)
+  }))
+
+  return (
+    <div className="absolute top-16 right-0 w-80 z-10 bg-white shadow-xl flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onBack}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex-1">
+          <h3 className="font-medium text-gray-900">{selectedList.name}</h3>
+          <p className="text-xs text-gray-500">{editSelections.length} countries</p>
+        </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-4">
+          {/* Groups Section */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-gray-700">Groups</h4>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setShowAddGroup(!showAddGroup)}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add Group
+              </Button>
+            </div>
+
+            {/* Add Group Form */}
+            {showAddGroup && (
+              <div className="mb-3 p-3 bg-gray-50 rounded-lg space-y-2">
+                <Input
+                  placeholder="Group name..."
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  className="h-8 text-sm"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddGroup()}
+                />
+                <div className="flex gap-1">
+                  {GROUP_COLORS.map((c) => (
+                    <button
+                      key={c.value}
+                      className="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-transform hover:scale-110"
+                      style={{
+                        backgroundColor: c.value,
+                        borderColor: newGroupColor === c.value ? 'white' : 'transparent',
+                        boxShadow: newGroupColor === c.value ? `0 0 0 2px ${c.value}` : 'none',
+                      }}
+                      onClick={() => setNewGroupColor(c.value)}
+                      title={c.name}
+                    >
+                      {newGroupColor === c.value && <Check className="h-3 w-3 text-white" />}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="h-7 text-xs flex-1" onClick={handleAddGroup}>
+                    Create
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddGroup(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Group List */}
+            {editGroups.length === 0 && !showAddGroup && (
+              <p className="text-xs text-gray-400 mb-3">No groups yet. Countries will be blue by default.</p>
+            )}
+
+            {groupedCountries.map(({ group, countries }) => (
+              <div key={group.id} className="mb-3">
+                {editingGroupId === group.id ? (
+                  <div className="p-2 bg-gray-50 rounded-lg space-y-2 mb-2">
+                    <Input
+                      value={editGroupName}
+                      onChange={(e) => setEditGroupName(e.target.value)}
+                      className="h-7 text-sm"
+                    />
+                    <div className="flex gap-1">
+                      {GROUP_COLORS.map((c) => (
+                        <button
+                          key={c.value}
+                          className="w-5 h-5 rounded-full border-2 flex items-center justify-center"
+                          style={{
+                            backgroundColor: c.value,
+                            borderColor: editGroupColor === c.value ? 'white' : 'transparent',
+                            boxShadow: editGroupColor === c.value ? `0 0 0 2px ${c.value}` : 'none',
+                          }}
+                          onClick={() => setEditGroupColor(c.value)}
+                        >
+                          {editGroupColor === c.value && <Check className="h-2 w-2 text-white" />}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" className="h-6 text-xs flex-1" onClick={saveEditGroup}>Save</Button>
+                      <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setEditingGroupId(null)}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 group"
+                    style={{ borderLeft: `4px solid ${group.color}` }}
+                  >
+                    <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
+                    <span className="text-sm font-medium flex-1">{group.name}</span>
+                    <span className="text-xs text-gray-400">{countries.length}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                      onClick={() => startEditGroup(group)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 text-red-500"
+                      onClick={() => handleRemoveGroup(group.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+
+                {/* Countries in this group */}
+                {countries.map((country) => (
+                  <CountryItemEdit
+                    key={country.country_code}
+                    country={country}
+                    groups={editGroups}
+                    onRemove={(code) => setEditSelections(prev => prev.filter(c => c.country_code !== code))}
+                    onUpdateGroup={handleUpdateCountryGroup}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* Ungrouped Countries */}
+          {ungroupedCountries.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">
+                {editGroups.length > 0 ? 'Ungrouped' : 'Countries'}
+              </h4>
+              {ungroupedCountries.map((country) => (
+                <CountryItemEdit
+                  key={country.country_code}
+                  country={country}
+                  groups={editGroups}
+                  onRemove={(code) => setEditSelections(prev => prev.filter(c => c.country_code !== code))}
+                  onUpdateGroup={handleUpdateCountryGroup}
+                />
+              ))}
+            </div>
+          )}
+
+          {editSelections.length === 0 && (
+            <p className="text-center text-gray-500 text-sm py-4">Click countries on the globe to add them</p>
+          )}
+        </div>
+      </ScrollArea>
+
+      <div className="p-4 border-t border-gray-200">
+        <Button className="w-full" onClick={onSave}>
+          Save Changes
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// Country item for edit panel
+interface CountryItemEditProps {
+  country: UnsavedCountrySelection
+  groups: CountryGroup[]
+  onRemove: (countryCode: string) => void
+  onUpdateGroup: (countryCode: string, groupId: string | null) => void
+}
+
+function CountryItemEdit({ country, groups, onRemove, onUpdateGroup }: CountryItemEditProps) {
+  const [showGroupSelect, setShowGroupSelect] = useState(false)
+
+  return (
+    <div
+      className="bg-gray-50 rounded-lg p-3 ml-2 mb-2"
+      style={{ borderLeft: `4px solid ${country.color}` }}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{getFlagEmoji(country.country_code)}</span>
+          <span className="font-medium text-gray-900 text-sm">{country.country_name}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {groups.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-gray-400"
+              onClick={() => setShowGroupSelect(!showGroupSelect)}
+              title="Change group"
+            >
+              <div
+                className="w-4 h-4 rounded-full border-2 border-gray-300"
+                style={{ backgroundColor: country.color }}
+              />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-gray-400 hover:text-red-500"
+            onClick={() => onRemove(country.country_code)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Group selector */}
+      {showGroupSelect && groups.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          <button
+            className={`px-2 py-1 text-xs rounded border ${!country.group_id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+            onClick={() => { onUpdateGroup(country.country_code, null); setShowGroupSelect(false) }}
+          >
+            None
+          </button>
+          {groups.map((g) => (
+            <button
+              key={g.id}
+              className={`px-2 py-1 text-xs rounded border flex items-center gap-1 ${country.group_id === g.id ? 'border-gray-800 bg-gray-100' : 'border-gray-200'}`}
+              onClick={() => { onUpdateGroup(country.country_code, g.id); setShowGroupSelect(false) }}
+            >
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: g.color }} />
+              {g.name}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

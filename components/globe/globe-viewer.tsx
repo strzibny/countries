@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import { Plus, Minus, RotateCcw } from 'lucide-react'
+import { Plus, Minus, RotateCcw, Pause, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 // Dynamically import react-globe.gl with SSR disabled
@@ -15,8 +15,13 @@ const Globe = dynamic(() => import('react-globe.gl'), {
   ),
 })
 
+interface CountryColorMap {
+  [countryCode: string]: string
+}
+
 interface GlobeViewerProps {
   selectedCountries: string[]
+  countryColors?: CountryColorMap
   onCountryClick: (countryCode: string, countryName: string) => void
   className?: string
 }
@@ -55,12 +60,13 @@ function getCountryName(properties: GeoProperties | undefined): string {
   return properties.name || properties.ADMIN || properties.NAME || 'Unknown'
 }
 
-export function GlobeViewer({ selectedCountries, onCountryClick, className = '' }: GlobeViewerProps) {
+export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryClick, className = '' }: GlobeViewerProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const globeRef = useRef<any>(null)
   const [countries, setCountries] = useState<GeoJSON | null>(null)
   const [hoverCountry, setHoverCountry] = useState<GeoFeature | null>(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
+  const [isRotating, setIsRotating] = useState(true)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Load country data
@@ -90,13 +96,17 @@ export function GlobeViewer({ selectedCountries, onCountryClick, className = '' 
     if (globeRef.current) {
       const controls = globeRef.current.controls?.()
       if (controls) {
-        controls.autoRotate = true
+        controls.autoRotate = isRotating
         controls.autoRotateSpeed = 0.5
         controls.minDistance = 150 // Closest zoom
         controls.maxDistance = 500 // Farthest zoom
       }
     }
-  }, [countries])
+  }, [countries, isRotating])
+
+  const handleToggleRotation = useCallback(() => {
+    setIsRotating(prev => !prev)
+  }, [])
 
   const handleZoomIn = useCallback(() => {
     if (globeRef.current) {
@@ -149,13 +159,22 @@ export function GlobeViewer({ selectedCountries, onCountryClick, className = '' 
     const feature = obj as GeoFeature
     const countryCode = getCountryCode(feature.properties)
     if (selectedCountries.includes(countryCode)) {
-      return 'rgba(96, 165, 250, 0.9)' // Bright blue for selected
+      // Use custom color if set, with 90% opacity
+      const customColor = countryColors[countryCode]
+      if (customColor) {
+        // Convert hex to rgba
+        const r = parseInt(customColor.slice(1, 3), 16)
+        const g = parseInt(customColor.slice(3, 5), 16)
+        const b = parseInt(customColor.slice(5, 7), 16)
+        return `rgba(${r}, ${g}, ${b}, 0.9)`
+      }
+      return 'rgba(96, 165, 250, 0.9)' // Default blue for selected
     }
     if (hoverCountry && getCountryCode(hoverCountry.properties) === countryCode) {
       return 'rgba(209, 213, 219, 0.7)' // Bright gray for hover
     }
     return 'rgba(134, 148, 168, 0.6)' // Brighter default gray
-  }, [selectedCountries, hoverCountry])
+  }, [selectedCountries, countryColors, hoverCountry])
 
   const getPolygonAltitude = useCallback((obj: object) => {
     const feature = obj as GeoFeature
@@ -248,6 +267,23 @@ export function GlobeViewer({ selectedCountries, onCountryClick, className = '' 
           title="Reset view"
         >
           <RotateCcw className="h-4 w-4 text-gray-700" />
+        </Button>
+      </div>
+
+      {/* Rotation Control */}
+      <div className="absolute bottom-6 right-6">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 bg-white/90 hover:bg-white border-gray-200 shadow-lg"
+          onClick={handleToggleRotation}
+          title={isRotating ? "Pause rotation" : "Resume rotation"}
+        >
+          {isRotating ? (
+            <Pause className="h-4 w-4 text-gray-700" />
+          ) : (
+            <Play className="h-4 w-4 text-gray-700" />
+          )}
         </Button>
       </div>
     </div>
