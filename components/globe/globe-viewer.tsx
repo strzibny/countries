@@ -105,7 +105,17 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
   }, [countries, isRotating])
 
   const handleToggleRotation = useCallback(() => {
-    setIsRotating(prev => !prev)
+    setIsRotating(prev => {
+      const newValue = !prev
+      // Directly update controls
+      if (globeRef.current) {
+        const controls = globeRef.current.controls?.()
+        if (controls) {
+          controls.autoRotate = newValue
+        }
+      }
+      return newValue
+    })
   }, [])
 
   const handleZoomIn = useCallback(() => {
@@ -239,8 +249,22 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
         atmosphereAltitude={0.18}
       />
 
-      {/* Zoom Controls */}
+      {/* Globe Controls */}
       <div className="absolute bottom-6 left-6 flex flex-col gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 bg-white/90 hover:bg-white border-gray-200 shadow-lg"
+          onClick={handleToggleRotation}
+          title={isRotating ? "Pause rotation" : "Resume rotation"}
+        >
+          {isRotating ? (
+            <Pause className="h-4 w-4 text-gray-700" />
+          ) : (
+            <Play className="h-4 w-4 text-gray-700" />
+          )}
+        </Button>
+        <div className="h-px bg-gray-300 mx-2" />
         <Button
           variant="outline"
           size="icon"
@@ -267,23 +291,6 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
           title="Reset view"
         >
           <RotateCcw className="h-4 w-4 text-gray-700" />
-        </Button>
-      </div>
-
-      {/* Rotation Control */}
-      <div className="absolute bottom-6 right-6">
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-10 w-10 bg-white/90 hover:bg-white border-gray-200 shadow-lg"
-          onClick={handleToggleRotation}
-          title={isRotating ? "Pause rotation" : "Resume rotation"}
-        >
-          {isRotating ? (
-            <Pause className="h-4 w-4 text-gray-700" />
-          ) : (
-            <Play className="h-4 w-4 text-gray-700" />
-          )}
         </Button>
       </div>
     </div>
