@@ -351,7 +351,7 @@ export default function Home() {
                     onClick={() => setPanelView(panelView === 'lists' || panelView === 'list-detail' ? 'none' : 'lists')}
                   >
                     <List className="h-4 w-4 mr-2" />
-                    My Lists
+                    My lists
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -477,15 +477,14 @@ export default function Home() {
         {panelView === 'lists' && (
           <div className="absolute top-16 right-0 w-80 z-10 bg-white shadow-xl flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-              <h3 className="font-medium text-gray-900">My Lists</h3>
+              <h3 className="font-medium text-gray-900">My lists</h3>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPanelView('none')}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
             <div className="p-4 border-b border-gray-200">
               <Button className="w-full" onClick={handleNewList}>
-                <Plus className="h-4 w-4 mr-2" />
-                New List
+                New list
               </Button>
             </div>
             <ScrollArea className="flex-1">
