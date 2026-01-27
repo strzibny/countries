@@ -18,7 +18,7 @@ import { AuthDialog } from '@/components/auth/auth-dialog'
 import { useUnsavedSelections } from '@/hooks/use-unsaved-selections'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
-import { Globe, ChevronRight, X, LogOut, List, Plus, Trash2, ChevronLeft, Check, Pencil } from 'lucide-react'
+import { Globe, ChevronRight, X, LogOut, List, Plus, Trash2, ChevronLeft, Check, Pencil, Share2 } from 'lucide-react'
 import { CountryListWithCount, CountryListWithCountries, UnsavedCountrySelection, CountryGroup, DEFAULT_COLOR, GROUP_COLORS } from '@/types/database'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
@@ -336,7 +336,17 @@ export default function Home() {
               <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
                 <Globe className="h-4 w-4 text-white" />
               </div>
-              <span className="text-lg font-semibold text-white">Country Lists</span>
+              <div>
+                <span className="text-lg font-semibold text-white">Country Lists</span>
+                <a
+                  href="https://x.com/strzibnyj"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-xs text-white/60 hover:text-white/80 transition-colors"
+                >
+                  Made by Josef
+                </a>
+              </div>
             </div>
             <div className="flex items-center gap-4">
               {user ? (
@@ -631,12 +641,23 @@ function ListDetailPanel({
   onClose,
   onSave,
 }: ListDetailPanelProps) {
+  const { toast } = useToast()
   const [showAddGroup, setShowAddGroup] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
   const [newGroupColor, setNewGroupColor] = useState(GROUP_COLORS[0].value)
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [editGroupName, setEditGroupName] = useState('')
   const [editGroupColor, setEditGroupColor] = useState('')
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/public/${selectedList.id}`
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      toast({ title: 'Link copied!', description: 'Share link copied to clipboard' })
+    } catch {
+      toast({ title: 'Share link', description: shareUrl })
+    }
+  }
 
   const handleAddGroup = () => {
     if (newGroupName.trim()) {
@@ -703,6 +724,9 @@ function ListDetailPanel({
           <h3 className="font-medium text-gray-900">{selectedList.name}</h3>
           <p className="text-xs text-gray-500">{editSelections.length} countries</p>
         </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleShare} title="Copy share link">
+          <Share2 className="h-4 w-4" />
+        </Button>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>

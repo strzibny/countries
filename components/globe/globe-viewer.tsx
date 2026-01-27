@@ -29,6 +29,7 @@ interface GlobeViewerProps {
 interface GeoProperties {
   'ISO3166-1-Alpha-2'?: string
   ISO_A2?: string
+  ISO_A2_EH?: string
   name?: string
   ADMIN?: string
   NAME?: string
@@ -51,7 +52,12 @@ interface GeoJSON {
 // Helper to get country code from various GeoJSON formats
 function getCountryCode(properties: GeoProperties | undefined): string {
   if (!properties) return ''
-  return properties['ISO3166-1-Alpha-2'] || properties.ISO_A2 || ''
+  const code = properties['ISO3166-1-Alpha-2'] || properties.ISO_A2 || ''
+  // Fall back to ISO_A2_EH if ISO_A2 is -99 (happens for France, Norway, etc.)
+  if (code === '-99' && properties.ISO_A2_EH) {
+    return properties.ISO_A2_EH
+  }
+  return code
 }
 
 // Helper to get country name from various GeoJSON formats
@@ -91,18 +97,43 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
 
-  // Auto-rotate globe and set zoom limits
+  // Update rotation when isRotating changes
   useEffect(() => {
     if (globeRef.current) {
       const controls = globeRef.current.controls?.()
       if (controls) {
         controls.autoRotate = isRotating
-        controls.autoRotateSpeed = 0.5
-        controls.minDistance = 150 // Closest zoom
-        controls.maxDistance = 500 // Farthest zoom
       }
     }
-  }, [countries, isRotating])
+  }, [isRotating])
+
+  // Initialize globe controls when ready
+  const handleGlobeReady = useCallback(() => {
+    const initControls = () => {
+      if (globeRef.current) {
+        const controls = globeRef.current.controls?.()
+        if (controls) {
+          controls.autoRotate = true
+          controls.autoRotateSpeed = 0.5
+          controls.minDistance = 150 // Closest zoom
+          controls.maxDistance = 500 // Farthest zoom
+          return true
+        }
+      }
+      return false
+    }
+
+    // Try immediately, then retry a few times if needed
+    if (!initControls()) {
+      let attempts = 0
+      const interval = setInterval(() => {
+        attempts++
+        if (initControls() || attempts >= 10) {
+          clearInterval(interval)
+        }
+      }, 100)
+    }
+  }, [])
 
   const handleToggleRotation = useCallback(() => {
     setIsRotating(prev => {
@@ -244,6 +275,7 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
         polygonLabel={getPolygonLabel}
         onPolygonClick={handlePolygonClick}
         onPolygonHover={handlePolygonHover}
+        onGlobeReady={handleGlobeReady}
         polygonsTransitionDuration={300}
         atmosphereColor="rgba(129, 140, 248, 0.5)"
         atmosphereAltitude={0.18}

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { GlobeViewer } from '@/components/globe/globe-viewer'
 import { CountryPanel } from '@/components/globe/country-panel'
 import { useToast } from '@/hooks/use-toast'
-import { CountryListWithCountries, UnsavedCountrySelection } from '@/types/database'
+import { CountryListWithCountries, UnsavedCountrySelection, DEFAULT_COLOR } from '@/types/database'
 
 export default function EditListPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -28,10 +28,12 @@ export default function EditListPage({ params }: { params: Promise<{ id: string 
         setList(data.list)
         // Initialize selections from existing countries
         setSelections(
-          data.list.countries.map((c: { country_code: string; country_name: string; notes: string | null }) => ({
+          data.list.countries.map((c: { country_code: string; country_name: string; notes: string | null; color: string | null }) => ({
             country_code: c.country_code,
             country_name: c.country_name,
             notes: c.notes || '',
+            color: c.color || DEFAULT_COLOR,
+            group_id: null,
           }))
         )
       } else if (response.status === 404) {
@@ -61,7 +63,7 @@ export default function EditListPage({ params }: { params: Promise<{ id: string 
       if (exists) {
         return prev.filter(c => c.country_code !== countryCode)
       }
-      return [...prev, { country_code: countryCode, country_name: countryName, notes: '' }]
+      return [...prev, { country_code: countryCode, country_name: countryName, notes: '', color: DEFAULT_COLOR, group_id: null }]
     })
     setHasChanges(true)
   }, [])
