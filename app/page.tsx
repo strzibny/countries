@@ -337,7 +337,7 @@ export default function Home() {
                 <Globe className="h-4 w-4 text-white" />
               </div>
               <div>
-                <span className="text-lg font-semibold text-white">Country Lists</span>
+                <span className="text-lg font-semibold text-white">MyCountryList</span>
                 <a
                   href="https://x.com/strzibnyj"
                   target="_blank"

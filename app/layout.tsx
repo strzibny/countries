@@ -15,8 +15,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Next.js + Supabase Starter",
-  description: "A clean starter template with Next.js, Supabase, and Shadcn UI",
+  title: "MyCountryList - Build your country list",
+  description: "Create and share interactive country lists on a 3D globe. Track countries you've visited, want to visit, or organize them any way you like.",
+  keywords: ["country list", "travel", "visited countries", "world map", "globe", "travel tracker"],
+  authors: [{ name: "Josef", url: "https://x.com/strzibnyj" }],
+  openGraph: {
+    title: "MyCountryList - Build your country list",
+    description: "Create and share interactive country lists on a 3D globe. Track countries you've visited, want to visit, or organize them any way you like.",
+    type: "website",
+    siteName: "MyCountryList",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MyCountryList - Build your country list",
+    description: "Create and share interactive country lists on a 3D globe.",
+    creator: "@strzibnyj",
+  },
 };
 
 export default function RootLayout({
