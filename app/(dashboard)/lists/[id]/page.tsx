@@ -143,7 +143,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             </p>
           </div>
         </div>
-        <Link href={`/lists/${id}/edit`}>
+        <Link href={`/`}>
           <Button>
             <Pencil className="h-4 w-4 mr-2" />
             Edit on Globe
@@ -157,7 +157,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           <Globe className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No countries yet</h3>
           <p className="text-gray-500 mb-4">Add countries to this list using the globe editor</p>
-          <Link href={`/lists/${id}/edit`}>
+          <Link href={`/`}>
             <Button>
               <Pencil className="h-4 w-4 mr-2" />
               Edit on Globe

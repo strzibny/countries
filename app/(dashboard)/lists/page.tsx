@@ -56,8 +56,8 @@ export default function ListsPage() {
       description: `"${name}" has been created`,
     })
 
-    // Navigate to the edit page for the new list
-    router.push(`/lists/${data.list.id}/edit`)
+    // Navigate to home page where user can edit via "My lists"
+    router.push('/')
   }
 
   const handleDeleteList = async (id: string) => {

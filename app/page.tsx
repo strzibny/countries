@@ -644,7 +644,7 @@ function ListDetailPanel({
   const { toast } = useToast()
   const [showAddGroup, setShowAddGroup] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
-  const [newGroupColor, setNewGroupColor] = useState(GROUP_COLORS[0].value)
+  const [newGroupColor, setNewGroupColor] = useState<string>(GROUP_COLORS[0].value)
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [editGroupName, setEditGroupName] = useState('')
   const [editGroupColor, setEditGroupColor] = useState('')
