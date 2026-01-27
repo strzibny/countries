@@ -133,7 +133,7 @@ export function SavePromptDialog({
                     Saving...
                   </>
                 ) : (
-                  'Save List'
+                  'Save list'
                 )}
               </Button>
             </DialogFooter>

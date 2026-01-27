@@ -556,7 +556,7 @@ export default function Home() {
               className="bg-blue-600 hover:bg-blue-700 shadow-lg"
               onClick={handleSaveClick}
             >
-              Save Your List
+              Save list
             </Button>
           </div>
         )}

@@ -259,7 +259,7 @@ export function CountryPanel({
             onClick={onSave}
             disabled={isSaving || selections.length === 0}
           >
-            {isSaving ? 'Saving...' : 'Save List'}
+            {isSaving ? 'Saving...' : 'Save list'}
           </Button>
         </div>
       )}
