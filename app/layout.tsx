@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -47,6 +48,11 @@ export default function RootLayout({
           {children}
         </AuthProvider>
         <Toaster />
+        <Script
+          src="https://beamanalytics.b-cdn.net/beam.min.js"
+          data-token="3e6fbc5d-8b12-4acf-a9df-2571a2a3ddc3"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
