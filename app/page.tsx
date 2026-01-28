@@ -18,7 +18,7 @@ import { AuthDialog } from '@/components/auth/auth-dialog'
 import { useUnsavedSelections } from '@/hooks/use-unsaved-selections'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
-import { Globe, ChevronRight, X, LogOut, List, Plus, Trash2, ChevronLeft, Check, Pencil, Share2, MessageSquare } from 'lucide-react'
+import { Globe, ChevronRight, X, LogOut, List, Plus, Trash2, ChevronLeft, Check, Pencil, Share2, MessageSquare, FileText } from 'lucide-react'
 import { CountryListWithCount, CountryListWithCountries, UnsavedCountrySelection, CountryGroup, DEFAULT_COLOR, GROUP_COLORS } from '@/types/database'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
@@ -340,18 +340,27 @@ export default function Home() {
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-gray-900/80 to-transparent">
         <div className="flex h-16 items-center justify-between px-6">
-            <button
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-              onClick={() => setShowAboutDialog(true)}
-            >
+            <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
                 <Globe className="h-4 w-4 text-white" />
               </div>
               <div className="text-left">
-                <span className="text-lg font-semibold text-white">MyCountryList</span>
-                <span className="block text-xs text-white/60">Made by Josef</span>
+                <button
+                  className="text-lg font-semibold text-white hover:text-white/80 transition-colors"
+                  onClick={() => setShowAboutDialog(true)}
+                >
+                  MyCountryList
+                </button>
+                <a
+                  href="https://x.com/strzibnyj"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-xs text-white/60 hover:text-white/80 transition-colors"
+                >
+                  Made by Josef
+                </a>
               </div>
-            </button>
+            </div>
             <div className="flex items-center gap-4">
               {user ? (
                 <>
@@ -699,6 +708,24 @@ function ListDetailPanel({
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [editGroupName, setEditGroupName] = useState('')
   const [editGroupColor, setEditGroupColor] = useState('')
+  const [showDescriptionDialog, setShowDescriptionDialog] = useState(false)
+  const [descriptionValue, setDescriptionValue] = useState(selectedList.description || '')
+
+  const handleSaveDescription = async () => {
+    try {
+      const response = await fetch(`/api/lists/${selectedList.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: descriptionValue }),
+      })
+      if (response.ok) {
+        toast({ title: 'Description saved' })
+        setShowDescriptionDialog(false)
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save description', variant: 'destructive' })
+    }
+  }
 
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}/public/${selectedList.id}`
@@ -775,6 +802,15 @@ function ListDetailPanel({
           <h3 className="font-medium text-gray-900">{selectedList.name}</h3>
           <p className="text-xs text-gray-500">{editSelections.length} countries</p>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`h-8 w-8 ${descriptionValue ? 'text-amber-500' : ''}`}
+          onClick={() => setShowDescriptionDialog(true)}
+          title="Edit description"
+        >
+          <FileText className="h-4 w-4" />
+        </Button>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleShare} title="Copy share link">
           <Share2 className="h-4 w-4" />
         </Button>
@@ -945,6 +981,29 @@ function ListDetailPanel({
           Save Changes
         </Button>
       </div>
+
+      {/* Description Dialog */}
+      <Dialog open={showDescriptionDialog} onOpenChange={setShowDescriptionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>List description</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            placeholder="Add a description for this list..."
+            value={descriptionValue}
+            onChange={(e) => setDescriptionValue(e.target.value)}
+            className="min-h-[120px] text-sm"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowDescriptionDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveDescription}>
+              Save description
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
