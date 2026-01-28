@@ -7,6 +7,12 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Globe, ChevronRight, X, User } from 'lucide-react'
 import Link from 'next/link'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface ListCountry {
   id: string
@@ -33,6 +39,7 @@ export default function PublicListPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showPanel, setShowPanel] = useState(false)
+  const [showAboutDialog, setShowAboutDialog] = useState(false)
 
   useEffect(() => {
     async function fetchList() {
@@ -99,23 +106,18 @@ export default function PublicListPage() {
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-gray-900/80 to-transparent">
         <div className="flex h-16 items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2">
+          <button
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            onClick={() => setShowAboutDialog(true)}
+          >
             <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
               <Globe className="h-4 w-4 text-white" />
             </div>
-            <div>
+            <div className="text-left">
               <span className="text-lg font-semibold text-white">MyCountryList</span>
-              <a
-                href="https://x.com/strzibnyj"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-xs text-white/60 hover:text-white/80 transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Made by Josef
-              </a>
+              <span className="block text-xs text-white/60">Made by Josef</span>
             </div>
-          </Link>
+          </button>
           <Link href="/">
             <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
               Make your own
@@ -211,6 +213,53 @@ export default function PublicListPage() {
           </div>
         )}
       </div>
+
+      {/* About Dialog */}
+      <Dialog open={showAboutDialog} onOpenChange={setShowAboutDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
+                <Globe className="h-4 w-4 text-white" />
+              </div>
+              MyCountryList
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm text-gray-600">
+            <p>
+              <strong className="text-gray-900">Build your personal country lists</strong> on an interactive 3D globe.
+            </p>
+            <div className="space-y-2">
+              <p><strong className="text-gray-900">Features:</strong></p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Click countries on the globe to add them to your list</li>
+                <li>Create custom groups with different colors to organize countries</li>
+                <li>Add personal notes to each country</li>
+                <li>Save multiple lists and share them with friends</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <p><strong className="text-gray-900">Ideas for lists:</strong></p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Countries you&apos;ve visited</li>
+                <li>Travel bucket list destinations</li>
+                <li>Places you&apos;ve lived or worked</li>
+                <li>Countries with friends or family</li>
+              </ul>
+            </div>
+            <div className="pt-2 border-t border-gray-200">
+              <a
+                href="https://x.com/strzibnyj"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Made by Josef
+              </a>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

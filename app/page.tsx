@@ -57,6 +57,7 @@ export default function Home() {
   const [pendingSave, setPendingSave] = useState(false)
   const [showAuthDialog, setShowAuthDialog] = useState(false)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
+  const [showAboutDialog, setShowAboutDialog] = useState(false)
 
   // Lists state
   const [lists, setLists] = useState<CountryListWithCount[]>([])
@@ -339,22 +340,18 @@ export default function Home() {
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-gray-900/80 to-transparent">
         <div className="flex h-16 items-center justify-between px-6">
-            <div className="flex items-center gap-2">
+            <button
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              onClick={() => setShowAboutDialog(true)}
+            >
               <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
                 <Globe className="h-4 w-4 text-white" />
               </div>
-              <div>
+              <div className="text-left">
                 <span className="text-lg font-semibold text-white">MyCountryList</span>
-                <a
-                  href="https://x.com/strzibnyj"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block text-xs text-white/60 hover:text-white/80 transition-colors"
-                >
-                  Made by Josef
-                </a>
+                <span className="block text-xs text-white/60">Made by Josef</span>
               </div>
-            </div>
+            </button>
             <div className="flex items-center gap-4">
               {user ? (
                 <>
@@ -622,6 +619,53 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* About Dialog */}
+      <Dialog open={showAboutDialog} onOpenChange={setShowAboutDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
+                <Globe className="h-4 w-4 text-white" />
+              </div>
+              MyCountryList
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm text-gray-600">
+            <p>
+              <strong className="text-gray-900">Build your personal country lists</strong> on an interactive 3D globe.
+            </p>
+            <div className="space-y-2">
+              <p><strong className="text-gray-900">Features:</strong></p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Click countries on the globe to add them to your list</li>
+                <li>Create custom groups with different colors to organize countries</li>
+                <li>Add personal notes to each country</li>
+                <li>Save multiple lists and share them with friends</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <p><strong className="text-gray-900">Ideas for lists:</strong></p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Countries you&apos;ve visited</li>
+                <li>Travel bucket list destinations</li>
+                <li>Places you&apos;ve lived or worked</li>
+                <li>Countries with friends or family</li>
+              </ul>
+            </div>
+            <div className="pt-2 border-t border-gray-200">
+              <a
+                href="https://x.com/strzibnyj"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Made by Josef
+              </a>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
