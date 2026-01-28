@@ -41,6 +41,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <Script
+          src="https://beamanalytics.b-cdn.net/beam.min.js"
+          data-token="3e6fbc5d-8b12-4acf-a9df-2571a2a3ddc3"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -48,11 +55,6 @@ export default function RootLayout({
           {children}
         </AuthProvider>
         <Toaster />
-        <Script
-          src="https://beamanalytics.b-cdn.net/beam.min.js"
-          data-token="3e6fbc5d-8b12-4acf-a9df-2571a2a3ddc3"
-          strategy="afterInteractive"
-        />
       </body>
     </html>
   );
