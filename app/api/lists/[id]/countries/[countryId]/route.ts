@@ -29,11 +29,12 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { notes, color } = body
+    const { notes, color, group_id } = body
 
-    const updateData: { notes?: string | null; color?: string | null } = {}
+    const updateData: { notes?: string | null; color?: string | null; group_id?: string | null } = {}
     if (notes !== undefined) updateData.notes = notes || null
     if (color !== undefined) updateData.color = color || null
+    if (group_id !== undefined) updateData.group_id = group_id || null
 
     const { data: country, error } = await supabase
       .from('list_countries')

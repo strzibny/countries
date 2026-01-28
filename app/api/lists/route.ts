@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, description, countries } = body
+    const { name, description, countries, groups } = body
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
@@ -75,6 +75,7 @@ export async function POST(request: Request) {
         user_id: user.id,
         name: name.trim(),
         description: description?.trim() || null,
+        groups: groups || [],
       })
       .select()
       .single()
@@ -86,12 +87,13 @@ export async function POST(request: Request) {
 
     // If countries are provided, add them to the list
     if (countries && Array.isArray(countries) && countries.length > 0) {
-      const countriesToInsert = countries.map((country: { country_code: string; country_name: string; notes?: string; color?: string }) => ({
+      const countriesToInsert = countries.map((country: { country_code: string; country_name: string; notes?: string; color?: string; group_id?: string }) => ({
         list_id: list.id,
         country_code: country.country_code,
         country_name: country.country_name,
         notes: country.notes || null,
         color: country.color || null,
+        group_id: country.group_id || null,
       }))
 
       const { error: countriesError } = await supabase

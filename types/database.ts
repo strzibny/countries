@@ -12,6 +12,7 @@ export interface CountryList {
   user_id: string
   name: string
   description: string | null
+  groups: CountryGroup[] | null
   created_at: string
   updated_at: string
 }

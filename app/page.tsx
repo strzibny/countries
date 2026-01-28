@@ -102,14 +102,16 @@ export default function Home() {
       if (response.ok) {
         const data = await response.json()
         setSelectedList(data.list)
+        // Load groups from the list
+        setEditGroups(data.list.groups || [])
         // Load countries into edit selections
         setEditSelections(
-          data.list.countries.map((c: { country_code: string; country_name: string; notes: string | null; color: string | null }) => ({
+          data.list.countries.map((c: { country_code: string; country_name: string; notes: string | null; color: string | null; group_id: string | null }) => ({
             country_code: c.country_code,
             country_name: c.country_name,
             notes: c.notes || '',
             color: c.color || DEFAULT_COLOR,
-            group_id: null,
+            group_id: c.group_id || null,
           }))
         )
         setEditingListId(listId)
@@ -186,6 +188,15 @@ export default function Home() {
           )
         }
       }
+
+      // Also save the groups
+      operations.push(
+        fetch(`/api/lists/${editingListId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ groups: editGroups }),
+        })
+      )
 
       await Promise.all(operations)
       toast({ title: 'Changes saved' })
@@ -286,6 +297,7 @@ export default function Home() {
           name,
           description,
           countries: selections,
+          groups: groups,
         }),
       })
 

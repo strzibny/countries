@@ -74,7 +74,7 @@ export async function POST(
     }
 
     const body = await request.json()
-    const { country_code, country_name, notes, color } = body
+    const { country_code, country_name, notes, color, group_id } = body
 
     if (!country_code || !country_name) {
       return NextResponse.json({ error: 'country_code and country_name are required' }, { status: 400 })
@@ -88,6 +88,7 @@ export async function POST(
         country_name,
         notes: notes || null,
         color: color || null,
+        group_id: group_id || null,
       })
       .select()
       .single()
