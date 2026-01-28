@@ -18,10 +18,17 @@ import { AuthDialog } from '@/components/auth/auth-dialog'
 import { useUnsavedSelections } from '@/hooks/use-unsaved-selections'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
-import { Globe, ChevronRight, X, LogOut, List, Plus, Trash2, ChevronLeft, Check, Pencil, Share2 } from 'lucide-react'
+import { Globe, ChevronRight, X, LogOut, List, Plus, Trash2, ChevronLeft, Check, Pencil, Share2, MessageSquare } from 'lucide-react'
 import { CountryListWithCount, CountryListWithCountries, UnsavedCountrySelection, CountryGroup, DEFAULT_COLOR, GROUP_COLORS } from '@/types/database'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 type PanelView = 'none' | 'selection' | 'lists' | 'list-detail'
 
@@ -857,6 +864,7 @@ function ListDetailPanel({
                     groups={editGroups}
                     onRemove={(code) => setEditSelections(prev => prev.filter(c => c.country_code !== code))}
                     onUpdateGroup={handleUpdateCountryGroup}
+                    onUpdateNotes={(code, notes) => setEditSelections(prev => prev.map(c => c.country_code === code ? { ...c, notes } : c))}
                   />
                 ))}
               </div>
@@ -876,6 +884,7 @@ function ListDetailPanel({
                   groups={editGroups}
                   onRemove={(code) => setEditSelections(prev => prev.filter(c => c.country_code !== code))}
                   onUpdateGroup={handleUpdateCountryGroup}
+                  onUpdateNotes={(code, notes) => setEditSelections(prev => prev.map(c => c.country_code === code ? { ...c, notes } : c))}
                 />
               ))}
             </div>
@@ -902,22 +911,39 @@ interface CountryItemEditProps {
   groups: CountryGroup[]
   onRemove: (countryCode: string) => void
   onUpdateGroup: (countryCode: string, groupId: string | null) => void
+  onUpdateNotes: (countryCode: string, notes: string) => void
 }
 
-function CountryItemEdit({ country, groups, onRemove, onUpdateGroup }: CountryItemEditProps) {
+function CountryItemEdit({ country, groups, onRemove, onUpdateGroup, onUpdateNotes }: CountryItemEditProps) {
   const [showGroupSelect, setShowGroupSelect] = useState(false)
+  const [showNotesDialog, setShowNotesDialog] = useState(false)
+  const [notesValue, setNotesValue] = useState(country.notes)
+
+  const handleSaveNotes = () => {
+    onUpdateNotes(country.country_code, notesValue)
+    setShowNotesDialog(false)
+  }
 
   return (
     <div
       className="bg-gray-50 rounded-lg p-3 ml-2 mb-2"
       style={{ borderLeft: `4px solid ${country.color}` }}
     >
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-lg">{getFlagEmoji(country.country_code)}</span>
           <span className="font-medium text-gray-900 text-sm">{country.country_name}</span>
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-6 w-6 ${country.notes ? 'text-amber-500' : 'text-gray-400'}`}
+            onClick={() => { setNotesValue(country.notes); setShowNotesDialog(true) }}
+            title="Edit notes"
+          >
+            <MessageSquare className="h-4 w-4" />
+          </Button>
           {groups.length > 0 && (
             <Button
               variant="ghost"
@@ -943,6 +969,11 @@ function CountryItemEdit({ country, groups, onRemove, onUpdateGroup }: CountryIt
         </div>
       </div>
 
+      {/* Notes preview */}
+      {country.notes && (
+        <p className="text-xs text-gray-500 mt-1 truncate">{country.notes}</p>
+      )}
+
       {/* Group selector */}
       {showGroupSelect && groups.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
@@ -964,6 +995,32 @@ function CountryItemEdit({ country, groups, onRemove, onUpdateGroup }: CountryIt
           ))}
         </div>
       )}
+
+      {/* Notes dialog */}
+      <Dialog open={showNotesDialog} onOpenChange={setShowNotesDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-xl">{getFlagEmoji(country.country_code)}</span>
+              {country.country_name}
+            </DialogTitle>
+          </DialogHeader>
+          <Textarea
+            placeholder="Add notes about this country..."
+            value={notesValue}
+            onChange={(e) => setNotesValue(e.target.value)}
+            className="min-h-[120px] text-sm"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowNotesDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveNotes}>
+              Save notes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -1,11 +1,17 @@
 "use client"
 
 import { useState } from 'react'
-import { X, Plus, Check, Pencil, Trash2 } from 'lucide-react'
+import { X, Plus, Check, Pencil, Trash2, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { UnsavedCountrySelection, CountryGroup, GROUP_COLORS } from '@/types/database'
 
 interface CountryPanelProps {
@@ -277,18 +283,34 @@ interface CountryItemProps {
 
 function CountryItem({ country, groups, onRemove, onUpdateNotes, onUpdateCountryGroup }: CountryItemProps) {
   const [showGroupSelect, setShowGroupSelect] = useState(false)
+  const [showNotesDialog, setShowNotesDialog] = useState(false)
+  const [notesValue, setNotesValue] = useState(country.notes)
+
+  const handleSaveNotes = () => {
+    onUpdateNotes(country.country_code, notesValue)
+    setShowNotesDialog(false)
+  }
 
   return (
     <div
       className="bg-gray-50 rounded-lg p-3 ml-2 mb-2"
       style={{ borderLeft: `4px solid ${country.color}` }}
     >
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-lg">{getFlagEmoji(country.country_code)}</span>
           <span className="font-medium text-gray-900 text-sm">{country.country_name}</span>
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-6 w-6 ${country.notes ? 'text-amber-500' : 'text-gray-400'}`}
+            onClick={() => { setNotesValue(country.notes); setShowNotesDialog(true) }}
+            title="Edit notes"
+          >
+            <MessageSquare className="h-4 w-4" />
+          </Button>
           {groups.length > 0 && (
             <Button
               variant="ghost"
@@ -314,9 +336,14 @@ function CountryItem({ country, groups, onRemove, onUpdateNotes, onUpdateCountry
         </div>
       </div>
 
+      {/* Notes preview */}
+      {country.notes && (
+        <p className="text-xs text-gray-500 mt-1 truncate">{country.notes}</p>
+      )}
+
       {/* Group selector */}
       {showGroupSelect && groups.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
+        <div className="flex flex-wrap gap-1 mt-2">
           <button
             className={`px-2 py-1 text-xs rounded border ${!country.group_id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
             onClick={() => { onUpdateCountryGroup(country.country_code, null); setShowGroupSelect(false) }}
@@ -336,12 +363,31 @@ function CountryItem({ country, groups, onRemove, onUpdateNotes, onUpdateCountry
         </div>
       )}
 
-      <Textarea
-        placeholder="Add notes..."
-        value={country.notes}
-        onChange={(e) => onUpdateNotes(country.country_code, e.target.value)}
-        className="min-h-[50px] text-sm resize-none"
-      />
+      {/* Notes dialog */}
+      <Dialog open={showNotesDialog} onOpenChange={setShowNotesDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-xl">{getFlagEmoji(country.country_code)}</span>
+              {country.country_name}
+            </DialogTitle>
+          </DialogHeader>
+          <Textarea
+            placeholder="Add notes about this country..."
+            value={notesValue}
+            onChange={(e) => setNotesValue(e.target.value)}
+            className="min-h-[120px] text-sm"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowNotesDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveNotes}>
+              Save notes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
