@@ -501,6 +501,7 @@ export default function Home() {
                 onAddGroup={addGroup}
                 onUpdateGroup={updateGroup}
                 onRemoveGroup={removeGroup}
+                onAddCountry={(code, name) => addCountry(code, name, null)}
                 onSave={handleSaveClick}
                 showSaveButton={selections.length > 0}
               />

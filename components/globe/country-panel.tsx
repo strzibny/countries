@@ -1,11 +1,18 @@
 "use client"
 
-import { useState } from 'react'
-import { X, Plus, Check, Pencil, Trash2, MessageSquare } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { X, Plus, Check, Pencil, Trash2, MessageSquare, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+
+import { ALL_COUNTRIES } from '@/lib/countries'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +30,7 @@ interface CountryPanelProps {
   onAddGroup: (name: string, color: string) => CountryGroup
   onUpdateGroup: (groupId: string, name: string, color: string) => void
   onRemoveGroup: (groupId: string) => void
+  onAddCountry?: (countryCode: string, countryName: string) => void
   onSave?: () => void
   showSaveButton?: boolean
   isSaving?: boolean
@@ -38,6 +46,7 @@ export function CountryPanel({
   onAddGroup,
   onUpdateGroup,
   onRemoveGroup,
+  onAddCountry,
   onSave,
   showSaveButton = true,
   isSaving = false,
@@ -46,6 +55,21 @@ export function CountryPanel({
   const [showAddGroup, setShowAddGroup] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
   const [newGroupColor, setNewGroupColor] = useState<string>(GROUP_COLORS[0].value)
+  const [showAddCountry, setShowAddCountry] = useState(false)
+  const [countrySearch, setCountrySearch] = useState('')
+
+  // Filter countries that aren't already selected
+  const availableCountries = useMemo(() => {
+    const selectedCodes = new Set(selections.map(s => s.country_code))
+    return ALL_COUNTRIES
+      .filter(c => !selectedCodes.has(c.code))
+      .filter(c =>
+        countrySearch.length === 0 ||
+        c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+        c.code.toLowerCase().includes(countrySearch.toLowerCase())
+      )
+      .slice(0, 20) // Limit results for performance
+  }, [selections, countrySearch])
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [editGroupName, setEditGroupName] = useState('')
   const [editGroupColor, setEditGroupColor] = useState('')
@@ -98,6 +122,53 @@ export function CountryPanel({
         <h3 className="font-medium text-gray-900">
           Selected ({selections.length})
         </h3>
+        {onAddCountry && (
+          <DropdownMenu open={showAddCountry} onOpenChange={setShowAddCountry}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 text-xs">
+                <Search className="h-3 w-3 mr-1" />
+                Add country
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-64 p-2" align="end">
+              <Input
+                placeholder="Search countries..."
+                value={countrySearch}
+                onChange={(e) => setCountrySearch(e.target.value)}
+                className="h-8 text-sm mb-2"
+                onClick={(e) => e.stopPropagation()}
+                autoFocus
+              />
+              <div className="max-h-48 overflow-y-auto">
+                {countrySearch.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-2">
+                    Type to search countries...
+                  </p>
+                ) : availableCountries.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-2">
+                    No matches found
+                  </p>
+                ) : (
+                  availableCountries.map((country) => (
+                    <button
+                      key={country.code}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-gray-100 rounded"
+                      onClick={() => {
+                        onAddCountry(country.code, country.name)
+                        setShowAddCountry(false)
+                        setCountrySearch('')
+                      }}
+                    >
+                      <span>{getFlagEmoji(country.code)}</span>
+                      <span>{country.name}</span>
+                      <span className="text-gray-400 text-xs ml-auto">{country.code}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
