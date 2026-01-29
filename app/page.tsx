@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -18,8 +18,9 @@ import { AuthDialog } from '@/components/auth/auth-dialog'
 import { useUnsavedSelections } from '@/hooks/use-unsaved-selections'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
-import { Globe, ChevronRight, X, LogOut, List, Plus, Trash2, ChevronLeft, Check, Pencil, Share2, MessageSquare, FileText } from 'lucide-react'
+import { Globe, ChevronRight, X, LogOut, List, Plus, Trash2, ChevronLeft, Check, Pencil, Share2, MessageSquare, FileText, Search } from 'lucide-react'
 import { CountryListWithCount, CountryListWithCountries, UnsavedCountrySelection, CountryGroup, DEFAULT_COLOR, GROUP_COLORS } from '@/types/database'
+import { ALL_COUNTRIES } from '@/lib/countries'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -724,6 +725,33 @@ function ListDetailPanel({
   const [editGroupColor, setEditGroupColor] = useState('')
   const [showDescriptionDialog, setShowDescriptionDialog] = useState(false)
   const [descriptionValue, setDescriptionValue] = useState(selectedList.description || '')
+  const [showAddCountry, setShowAddCountry] = useState(false)
+  const [countrySearch, setCountrySearch] = useState('')
+
+  // Filter countries that aren't already selected
+  const availableCountries = useMemo(() => {
+    const selectedCodes = new Set(editSelections.map(s => s.country_code))
+    return ALL_COUNTRIES
+      .filter(c => !selectedCodes.has(c.code))
+      .filter(c =>
+        countrySearch.length === 0 ||
+        c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+        c.code.toLowerCase().includes(countrySearch.toLowerCase())
+      )
+      .slice(0, 20)
+  }, [editSelections, countrySearch])
+
+  const handleAddCountry = (code: string, name: string) => {
+    setEditSelections(prev => [...prev, {
+      country_code: code,
+      country_name: name,
+      notes: '',
+      color: DEFAULT_COLOR,
+      group_id: null,
+    }])
+    setShowAddCountry(false)
+    setCountrySearch('')
+  }
 
   const handleSaveDescription = async () => {
     try {
@@ -831,6 +859,51 @@ function ListDetailPanel({
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
+      </div>
+
+      {/* Add Country Search */}
+      <div className="px-4 py-2 border-b border-gray-100">
+        <DropdownMenu open={showAddCountry} onOpenChange={setShowAddCountry}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full h-8 text-xs justify-start">
+              <Search className="h-3 w-3 mr-2" />
+              Add country...
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-64 p-2" align="start">
+            <Input
+              placeholder="Search countries..."
+              value={countrySearch}
+              onChange={(e) => setCountrySearch(e.target.value)}
+              className="h-8 text-sm mb-2"
+              onClick={(e) => e.stopPropagation()}
+              autoFocus
+            />
+            <div className="max-h-48 overflow-y-auto">
+              {countrySearch.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-2">
+                  Type to search countries...
+                </p>
+              ) : availableCountries.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-2">
+                  No matches found
+                </p>
+              ) : (
+                availableCountries.map((country) => (
+                  <button
+                    key={country.code}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-gray-100 rounded"
+                    onClick={() => handleAddCountry(country.code, country.name)}
+                  >
+                    <span>{getFlagEmoji(country.code)}</span>
+                    <span>{country.name}</span>
+                    <span className="text-gray-400 text-xs ml-auto">{country.code}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <ScrollArea className="flex-1">
