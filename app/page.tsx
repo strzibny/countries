@@ -661,6 +661,7 @@ export default function Home() {
               <p><strong className="text-gray-900">Features:</strong></p>
               <ul className="list-disc list-inside space-y-1 ml-2">
                 <li>Click countries on the globe to add them to your list</li>
+                <li>Use &quot;Add country&quot; search to find any country, including small ones like Vatican City</li>
                 <li>Create custom groups with different colors to organize countries</li>
                 <li>Add personal notes to each country</li>
                 <li>Save multiple lists and share them with friends</li>
