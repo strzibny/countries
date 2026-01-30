@@ -67,6 +67,7 @@ export default function Home() {
   const [editingListId, setEditingListId] = useState<string | null>(null)
   const [editSelections, setEditSelections] = useState<UnsavedCountrySelection[]>([])
   const [editGroups, setEditGroups] = useState<CountryGroup[]>([])
+  const [isSavingChanges, setIsSavingChanges] = useState(false)
 
   // Group selector popup state
   const [pendingCountry, setPendingCountry] = useState<{ code: string; name: string } | null>(null)
@@ -147,6 +148,7 @@ export default function Home() {
   const handleSaveListChanges = async () => {
     if (!selectedList || !editingListId) return
 
+    setIsSavingChanges(true)
     try {
       // Get current countries from DB
       const currentCodes = new Set(selectedList.countries.map(c => c.country_code))
@@ -206,6 +208,8 @@ export default function Home() {
     } catch (error) {
       console.error('Error saving changes:', error)
       toast({ title: 'Error', description: 'Failed to save changes', variant: 'destructive' })
+    } finally {
+      setIsSavingChanges(false)
     }
   }
 
@@ -572,6 +576,7 @@ export default function Home() {
             onBack={handleBackToLists}
             onClose={() => setPanelView('none')}
             onSave={handleSaveListChanges}
+            isSaving={isSavingChanges}
           />
         )}
 
@@ -704,6 +709,7 @@ interface ListDetailPanelProps {
   onBack: () => void
   onClose: () => void
   onSave: () => void
+  isSaving?: boolean
 }
 
 function ListDetailPanel({
@@ -715,6 +721,7 @@ function ListDetailPanel({
   onBack,
   onClose,
   onSave,
+  isSaving = false,
 }: ListDetailPanelProps) {
   const { toast } = useToast()
   const [showAddGroup, setShowAddGroup] = useState(false)
@@ -1064,8 +1071,8 @@ function ListDetailPanel({
       </ScrollArea>
 
       <div className="p-4 border-t border-gray-200">
-        <Button className="w-full" onClick={onSave}>
-          Save Changes
+        <Button className="w-full" onClick={onSave} disabled={isSaving}>
+          {isSaving ? 'Saving...' : 'Save changes'}
         </Button>
       </div>
 
