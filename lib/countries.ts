@@ -71,6 +71,7 @@ export const ALL_COUNTRIES = [
   { code: 'FM', name: 'Federated States of Micronesia' },
   { code: 'FJ', name: 'Fiji' },
   { code: 'FI', name: 'Finland' },
+  { code: 'FR', name: 'France' },
   { code: 'PF', name: 'French Polynesia' },
   { code: 'TF', name: 'French Southern and Antarctic Lands' },
   { code: 'GA', name: 'Gabon' },
