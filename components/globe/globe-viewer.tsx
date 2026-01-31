@@ -5,6 +5,15 @@ import dynamic from 'next/dynamic'
 import { Plus, Minus, RotateCcw, Pause, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
+function isWebGLAvailable(): boolean {
+  try {
+    const canvas = document.createElement('canvas')
+    return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'))
+  } catch {
+    return false
+  }
+}
+
 // Dynamically import react-globe.gl with SSR disabled
 const Globe = dynamic(() => import('react-globe.gl'), {
   ssr: false,
@@ -73,7 +82,12 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
   const [hoverCountry, setHoverCountry] = useState<GeoFeature | null>(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [isRotating, setIsRotating] = useState(true)
+  const [webGLSupported, setWebGLSupported] = useState(true)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setWebGLSupported(isWebGLAvailable())
+  }, [])
 
   // Load country data
   useEffect(() => {
@@ -250,6 +264,20 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
       setHoverCountry(null)
     }
   }, [])
+
+  if (!webGLSupported) {
+    return (
+      <div className={`w-full h-full flex items-center justify-center bg-gray-900 rounded-lg ${className}`}>
+        <div className="text-center text-white px-6">
+          <p className="text-lg font-medium">WebGL is not available</p>
+          <p className="text-sm text-gray-400 mt-2">
+            Your browser or device does not support WebGL, which is required to display the 3D globe.
+            Try enabling hardware acceleration in your browser settings or using a different browser.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   if (!countries) {
     return (
