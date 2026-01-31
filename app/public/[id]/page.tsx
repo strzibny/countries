@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { GlobeViewer } from '@/components/globe/globe-viewer'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
-import { Globe, ChevronRight, X, User } from 'lucide-react'
+import { Globe, ChevronRight, X, User, Info } from 'lucide-react'
 import Link from 'next/link'
 import {
   Dialog,
@@ -111,12 +111,9 @@ export default function PublicListPage() {
               <Globe className="h-4 w-4 text-white" />
             </div>
             <div className="text-left">
-              <button
-                className="text-lg font-semibold text-white hover:text-white/80 transition-colors"
-                onClick={() => setShowAboutDialog(true)}
-              >
+              <span className="text-lg font-semibold text-white">
                 MyCountryList
-              </button>
+              </span>
               <a
                 href="https://x.com/strzibnyj"
                 target="_blank"
@@ -127,11 +124,21 @@ export default function PublicListPage() {
               </a>
             </div>
           </div>
-          <Link href="/">
-            <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
-              Make your own
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900"
+              onClick={() => setShowAboutDialog(true)}
+            >
+              <Info className="h-4 w-4 mr-2" />
+              About
             </Button>
-          </Link>
+            <Link href="/">
+              <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
+                Make your own
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
