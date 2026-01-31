@@ -243,7 +243,7 @@ export default function PublicListPage() {
           </DialogHeader>
           <div className="space-y-4 text-sm text-gray-600">
             <p>
-              <strong className="text-gray-900">Build your personal country lists</strong> on an interactive 3D globe.
+              Build your personal country lists on an interactive 3D globe. It&apos;s free.
             </p>
             <div className="space-y-2">
               <p><strong className="text-gray-900">Features:</strong></p>
