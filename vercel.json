@@ -1,0 +1,12 @@
+{
+    "rewrites": [
+      {
+        "source": "/blog/:path*",
+        "destination": "https://domains.lakyai.com/public/mycountrylist.com/:path*"
+      },
+      {
+        "source": "/blog",
+        "destination": "https://domains.lakyai.com/public/mycountrylist.com"
+      }
+    ]
+}
