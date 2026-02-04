@@ -745,6 +745,7 @@ function ListDetailPanel({
   const [editGroupName, setEditGroupName] = useState('')
   const [editGroupColor, setEditGroupColor] = useState('')
   const [showDescriptionDialog, setShowDescriptionDialog] = useState(false)
+  const [nameValue, setNameValue] = useState(selectedList.name)
   const [descriptionValue, setDescriptionValue] = useState(selectedList.description || '')
   const [showAddCountry, setShowAddCountry] = useState(false)
   const [countrySearch, setCountrySearch] = useState('')
@@ -777,19 +778,23 @@ function ListDetailPanel({
     setCountrySearch('')
   }
 
-  const handleSaveDescription = async () => {
+  const handleSaveListDetails = async () => {
+    if (!nameValue.trim()) {
+      toast({ title: 'Error', description: 'Name cannot be empty', variant: 'destructive' })
+      return
+    }
     try {
       const response = await fetch(`/api/lists/${selectedList.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: descriptionValue }),
+        body: JSON.stringify({ name: nameValue, description: descriptionValue }),
       })
       if (response.ok) {
-        toast({ title: 'Description saved' })
+        toast({ title: 'List updated' })
         setShowDescriptionDialog(false)
       }
     } catch {
-      toast({ title: 'Error', description: 'Failed to save description', variant: 'destructive' })
+      toast({ title: 'Error', description: 'Failed to update list', variant: 'destructive' })
     }
   }
 
@@ -859,7 +864,7 @@ function ListDetailPanel({
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h3 className="font-medium text-gray-900">{selectedList.name}</h3>
+          <h3 className="font-medium text-gray-900">{nameValue}</h3>
           <p className="text-xs text-gray-500">{editSelections.length} countries</p>
         </div>
         <Button
@@ -1087,24 +1092,38 @@ function ListDetailPanel({
         </Button>
       </div>
 
-      {/* Description Dialog */}
+      {/* List Details Dialog */}
       <Dialog open={showDescriptionDialog} onOpenChange={setShowDescriptionDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>List description</DialogTitle>
+            <DialogTitle>Edit list details</DialogTitle>
           </DialogHeader>
-          <Textarea
-            placeholder="Add a description for this list..."
-            value={descriptionValue}
-            onChange={(e) => setDescriptionValue(e.target.value)}
-            className="min-h-[120px] text-sm"
-          />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Name</label>
+              <Input
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                placeholder="List name"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Description</label>
+              <Textarea
+                placeholder="Add a description for this list..."
+                value={descriptionValue}
+                onChange={(e) => setDescriptionValue(e.target.value)}
+                className="min-h-[100px] text-sm"
+              />
+            </div>
+          </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setShowDescriptionDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveDescription}>
-              Save description
+            <Button onClick={handleSaveListDetails}>
+              Save
             </Button>
           </div>
         </DialogContent>
