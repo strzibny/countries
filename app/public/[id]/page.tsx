@@ -130,12 +130,12 @@ export default function PublicListPage() {
               className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900"
               onClick={() => setShowAboutDialog(true)}
             >
-              <Info className="h-4 w-4 mr-2" />
+              <Info className="h-4 w-4 mr-1" />
               About
             </Button>
             <Link href="/public">
               <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
-                <List className="h-4 w-4 mr-2" />
+                <List className="h-4 w-4 mr-1" />
                 Public lists
               </Button>
             </Link>
