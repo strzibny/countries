@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Globe, Search, Info, MapPin } from 'lucide-react'
+import { Globe, Search, Info, MapPin, List } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -57,7 +57,7 @@ export default function PublicIndexPage() {
   return (
     <div className="min-h-screen bg-gray-900">
       {/* Header */}
-      <header className="border-b border-white/10">
+      <header>
         <div className="flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
@@ -86,6 +86,12 @@ export default function PublicIndexPage() {
               <Info className="h-4 w-4 mr-2" />
               About
             </Button>
+            <Link href="/public">
+              <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
+                <List className="h-4 w-4 mr-2" />
+                Public lists
+              </Button>
+            </Link>
             <Link href="/">
               <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
                 Make your own

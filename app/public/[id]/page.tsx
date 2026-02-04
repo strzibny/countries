@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { GlobeViewer } from '@/components/globe/globe-viewer'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
-import { Globe, ChevronRight, X, User, Info } from 'lucide-react'
+import { Globe, ChevronRight, X, User, Info, List } from 'lucide-react'
 import Link from 'next/link'
 import {
   Dialog,
@@ -133,6 +133,12 @@ export default function PublicListPage() {
               <Info className="h-4 w-4 mr-2" />
               About
             </Button>
+            <Link href="/public">
+              <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
+                <List className="h-4 w-4 mr-2" />
+                Public lists
+              </Button>
+            </Link>
             <Link href="/">
               <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
                 Make your own

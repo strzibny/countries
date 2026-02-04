@@ -84,15 +84,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null)
         }
 
-        if (event === 'SIGNED_IN') {
+        // Don't redirect if on a public page
+        const isPublicPage = window.location.pathname.startsWith('/public')
+
+        if (event === 'SIGNED_IN' && !isPublicPage) {
           router.push('/')
         }
 
-        if (event === 'SIGNED_OUT') {
-          // Don't redirect if on a public page
-          if (!window.location.pathname.startsWith('/public')) {
-            router.push('/')
-          }
+        if (event === 'SIGNED_OUT' && !isPublicPage) {
+          router.push('/')
         }
       }
     )
