@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://mycountrylist.com"),
   title: "MyCountryList - Build your country list",
   description: "Create and share interactive country lists on a 3D globe. Track countries you've visited, want to visit, or organize them any way you like.",
   keywords: ["country list", "travel", "visited countries", "world map", "globe", "travel tracker"],
