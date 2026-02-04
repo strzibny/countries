@@ -347,13 +347,19 @@ export default function Home() {
   }
 
   // Determine which countries to show on globe
-  const displayedCountries = editingListId ? editSelections.map(s => s.country_code) : selections.map(s => s.country_code)
+  const displayedCountries = useMemo(
+    () => (editingListId ? editSelections : selections).map(s => s.country_code),
+    [editingListId, editSelections, selections]
+  )
 
   // Build color map for globe
-  const countryColors = (editingListId ? editSelections : selections).reduce((acc, s) => {
-    acc[s.country_code] = s.color
-    return acc
-  }, {} as Record<string, string>)
+  const countryColors = useMemo(
+    () => (editingListId ? editSelections : selections).reduce((acc, s) => {
+      acc[s.country_code] = s.color
+      return acc
+    }, {} as Record<string, string>),
+    [editingListId, editSelections, selections]
+  )
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-gray-900">

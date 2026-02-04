@@ -65,6 +65,8 @@ export async function GET(
         countries: list.list_countries || [],
         owner_name: ownerName,
       }
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
     })
   } catch (error) {
     console.error('Error in GET /api/lists/[id]/public:', error)

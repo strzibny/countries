@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { Plus, Minus, RotateCcw, Pause, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -36,10 +36,8 @@ interface GlobeViewerProps {
 }
 
 interface GeoProperties {
-  'ISO3166-1-Alpha-2'?: string
   ISO_A2?: string
   ISO_A2_EH?: string
-  name?: string
   ADMIN?: string
   NAME?: string
 }
@@ -58,10 +56,10 @@ interface GeoJSON {
   features: GeoFeature[]
 }
 
-// Helper to get country code from various GeoJSON formats
+// Helper to get country code from GeoJSON properties
 function getCountryCode(properties: GeoProperties | undefined): string {
   if (!properties) return ''
-  const code = properties['ISO3166-1-Alpha-2'] || properties.ISO_A2 || ''
+  const code = properties.ISO_A2 || ''
   // Fall back to ISO_A2_EH if ISO_A2 is -99 (happens for France, Norway, etc.)
   if (code === '-99' && properties.ISO_A2_EH) {
     return properties.ISO_A2_EH
@@ -69,10 +67,24 @@ function getCountryCode(properties: GeoProperties | undefined): string {
   return code
 }
 
-// Helper to get country name from various GeoJSON formats
+// Helper to get country name from GeoJSON properties
 function getCountryName(properties: GeoProperties | undefined): string {
   if (!properties) return 'Unknown'
-  return properties.name || properties.ADMIN || properties.NAME || 'Unknown'
+  return properties.ADMIN || properties.NAME || 'Unknown'
+}
+
+// Module-level GeoJSON cache — survives across mounts/navigations
+let geoJsonCache: GeoJSON | null = null
+let geoJsonPromise: Promise<GeoJSON> | null = null
+
+function fetchGeoJson(): Promise<GeoJSON> {
+  if (geoJsonCache) return Promise.resolve(geoJsonCache)
+  if (!geoJsonPromise) {
+    geoJsonPromise = fetch('/data/countries.geojson')
+      .then(res => res.json())
+      .then(data => { geoJsonCache = data; return data })
+  }
+  return geoJsonPromise
 }
 
 export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryClick, className = '' }: GlobeViewerProps) {
@@ -85,14 +97,16 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
   const [webGLSupported, setWebGLSupported] = useState(true)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const selectedSet = useMemo(() => new Set(selectedCountries), [selectedCountries.join(',')])
+
   useEffect(() => {
     setWebGLSupported(isWebGLAvailable())
   }, [])
 
-  // Load country data
+  // Load country data (module-level cache avoids re-fetching across navigations)
   useEffect(() => {
-    fetch('/data/countries.geojson')
-      .then(res => res.json())
+    fetchGeoJson()
       .then(data => setCountries(data))
       .catch(err => console.error('Error loading country data:', err))
   }, [])
@@ -213,7 +227,7 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
   const getPolygonColor = useCallback((obj: object) => {
     const feature = obj as GeoFeature
     const countryCode = getCountryCode(feature.properties)
-    if (selectedCountries.includes(countryCode)) {
+    if (selectedSet.has(countryCode)) {
       // Use custom color if set, with 90% opacity
       const customColor = countryColors[countryCode]
       if (customColor) {
@@ -229,25 +243,25 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
       return 'rgba(209, 213, 219, 0.7)' // Bright gray for hover
     }
     return 'rgba(134, 148, 168, 0.6)' // Brighter default gray
-  }, [selectedCountries, countryColors, hoverCountry])
+  }, [selectedSet, countryColors, hoverCountry])
 
   const getPolygonAltitude = useCallback((obj: object) => {
     const feature = obj as GeoFeature
     const countryCode = getCountryCode(feature.properties)
-    if (selectedCountries.includes(countryCode)) {
+    if (selectedSet.has(countryCode)) {
       return 0.04 // Elevated for selected
     }
     if (hoverCountry && getCountryCode(hoverCountry.properties) === countryCode) {
       return 0.02 // Slightly elevated for hover
     }
     return 0.01 // Default
-  }, [selectedCountries, hoverCountry])
+  }, [selectedSet, hoverCountry])
 
   const getPolygonLabel = useCallback((obj: object) => {
     const d = obj as GeoFeature
     const name = getCountryName(d.properties)
     const code = getCountryCode(d.properties)
-    const isSelected = selectedCountries.includes(code)
+    const isSelected = selectedSet.has(code)
     return `
       <div class="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg">
         <div class="font-medium">${name}</div>
@@ -255,7 +269,7 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
         ${isSelected ? '<div class="text-xs text-blue-400 mt-1">Selected</div>' : ''}
       </div>
     `
-  }, [selectedCountries])
+  }, [selectedSet])
 
   const handlePolygonHover = useCallback((polygon: object | null) => {
     if (polygon && 'properties' in polygon) {
