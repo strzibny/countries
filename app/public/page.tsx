@@ -104,7 +104,7 @@ export default function PublicIndexPage() {
       {/* Content */}
       <div className="max-w-5xl mx-auto px-6 py-12">
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-white mb-3">Explore Country Lists</h1>
+          <h1 className="text-3xl font-bold text-white mb-3">Explore country lists</h1>
           <p className="text-white/60 max-w-lg mx-auto">
             Browse country lists shared by the community. Click any list to view it on the interactive globe.
           </p>
