@@ -13,6 +13,8 @@ export interface CountryList {
   name: string
   description: string | null
   groups: CountryGroup[] | null
+  is_public: boolean
+  is_discoverable: boolean
   created_at: string
   updated_at: string
 }

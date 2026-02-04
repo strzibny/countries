@@ -220,6 +220,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           ))}
         </div>
       )}
+
     </div>
   )
 }

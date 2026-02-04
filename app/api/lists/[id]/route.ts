@@ -64,12 +64,37 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, description, groups } = body
+    const { name, description, groups, is_public, is_discoverable } = body
 
-    const updates: { name?: string; description?: string | null; groups?: unknown[] } = {}
+    const updates: { name?: string; description?: string | null; groups?: unknown[]; is_public?: boolean; is_discoverable?: boolean } = {}
     if (name !== undefined) updates.name = name.trim()
     if (description !== undefined) updates.description = description?.trim() || null
     if (groups !== undefined) updates.groups = groups
+    if (is_public !== undefined) updates.is_public = is_public
+    if (is_discoverable !== undefined) updates.is_discoverable = is_discoverable
+
+    // If making not public, also turn off discoverable
+    if (is_public === false) {
+      updates.is_discoverable = false
+    }
+
+    // Discoverable requires public to be true
+    if (is_discoverable === true && is_public !== true) {
+      // Check current list state to see if it's already public
+      const { data: currentList } = await supabase
+        .from('country_lists')
+        .select('is_public')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (!currentList?.is_public && is_public !== true) {
+        return NextResponse.json(
+          { error: 'List must be public before it can be discoverable' },
+          { status: 400 }
+        )
+      }
+    }
 
     const { data: list, error } = await supabase
       .from('country_lists')

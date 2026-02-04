@@ -19,6 +19,8 @@ import { useUnsavedSelections } from '@/hooks/use-unsaved-selections'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 import { Globe, ChevronRight, X, LogOut, List, Plus, Trash2, ChevronLeft, Check, Pencil, Share2, MessageSquare, FileText, Search, Info } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { CountryListWithCount, CountryListWithCountries, UnsavedCountrySelection, CountryGroup, DEFAULT_COLOR, GROUP_COLORS } from '@/types/database'
 import { ALL_COUNTRIES } from '@/lib/countries'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -739,6 +741,9 @@ function ListDetailPanel({
   const [descriptionValue, setDescriptionValue] = useState(selectedList.description || '')
   const [showAddCountry, setShowAddCountry] = useState(false)
   const [countrySearch, setCountrySearch] = useState('')
+  const [showShareDialog, setShowShareDialog] = useState(false)
+  const [isPublic, setIsPublic] = useState(selectedList.is_public)
+  const [isDiscoverable, setIsDiscoverable] = useState(selectedList.is_discoverable)
 
   // Filter countries that aren't already selected
   const availableCountries = useMemo(() => {
@@ -781,14 +786,8 @@ function ListDetailPanel({
     }
   }
 
-  const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/public/${selectedList.id}`
-    try {
-      await navigator.clipboard.writeText(shareUrl)
-      toast({ title: 'Link copied!', description: 'Share link copied to clipboard' })
-    } catch {
-      toast({ title: 'Share link', description: shareUrl })
-    }
+  const handleShare = () => {
+    setShowShareDialog(true)
   }
 
   const handleAddGroup = () => {
@@ -1100,6 +1099,97 @@ function ListDetailPanel({
             <Button onClick={handleSaveDescription}>
               Save description
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share list</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5 pt-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="share-public" className="cursor-pointer flex-1">
+                <div>
+                  <span className="text-sm font-medium text-gray-900">Public</span>
+                  <p className="text-xs text-gray-500 font-normal">Anyone with the link can view</p>
+                </div>
+              </Label>
+              <Switch
+                id="share-public"
+                checked={isPublic}
+                onCheckedChange={async (checked) => {
+                  const updates: { is_public: boolean; is_discoverable?: boolean } = { is_public: checked }
+                  if (!checked) updates.is_discoverable = false
+                  try {
+                    const response = await fetch(`/api/lists/${selectedList.id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(updates),
+                    })
+                    if (!response.ok) throw new Error()
+                    const data = await response.json()
+                    setIsPublic(data.list.is_public)
+                    setIsDiscoverable(data.list.is_discoverable)
+                  } catch {
+                    toast({ title: 'Error', description: 'Failed to update visibility', variant: 'destructive' })
+                  }
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="share-discoverable" className="cursor-pointer flex-1">
+                <div>
+                  <span className="text-sm font-medium text-gray-900">Discoverable</span>
+                  <p className="text-xs text-gray-500 font-normal">Appears on the public browse page</p>
+                </div>
+              </Label>
+              <Switch
+                id="share-discoverable"
+                checked={isDiscoverable}
+                disabled={!isPublic}
+                onCheckedChange={async (checked) => {
+                  try {
+                    const response = await fetch(`/api/lists/${selectedList.id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ is_discoverable: checked }),
+                    })
+                    if (!response.ok) throw new Error()
+                    const data = await response.json()
+                    setIsDiscoverable(data.list.is_discoverable)
+                  } catch {
+                    toast({ title: 'Error', description: 'Failed to update visibility', variant: 'destructive' })
+                  }
+                }}
+              />
+            </div>
+            {isPublic && (
+              <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs text-gray-500 mb-1.5">Public link</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={typeof window !== 'undefined' ? `${window.location.origin}/public/${selectedList.id}` : `/public/${selectedList.id}`}
+                    className="text-xs bg-white border border-gray-200 rounded px-2 py-1.5 flex-1 min-w-0 overflow-hidden text-ellipsis outline-none"
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/public/${selectedList.id}`)
+                      toast({ title: 'Link copied' })
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

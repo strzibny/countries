@@ -89,7 +89,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (event === 'SIGNED_OUT') {
-          router.push('/')
+          // Don't redirect if on a public page
+          if (!window.location.pathname.startsWith('/public')) {
+            router.push('/')
+          }
         }
       }
     )

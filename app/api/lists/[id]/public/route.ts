@@ -17,6 +17,7 @@ export async function GET(
         id,
         name,
         description,
+        is_public,
         created_at,
         list_countries (
           id,
@@ -30,6 +31,11 @@ export async function GET(
       .single()
 
     if (listError || !list) {
+      return NextResponse.json({ error: 'List not found' }, { status: 404 })
+    }
+
+    // Only allow access to lists that are explicitly public
+    if (!list.is_public) {
       return NextResponse.json({ error: 'List not found' }, { status: 404 })
     }
 

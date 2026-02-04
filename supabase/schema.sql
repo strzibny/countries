@@ -234,3 +234,21 @@ CREATE TRIGGER update_list_countries_updated_at
 -- Indexes for faster queries
 CREATE INDEX IF NOT EXISTS idx_list_countries_list_id ON public.list_countries(list_id);
 CREATE INDEX IF NOT EXISTS idx_list_countries_country_code ON public.list_countries(country_code);
+
+-- ============================================
+-- Public & Discoverable Columns for Country Lists
+-- ============================================
+
+ALTER TABLE public.country_lists
+  ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN is_discoverable BOOLEAN NOT NULL DEFAULT false;
+
+CREATE INDEX idx_country_lists_public_discoverable
+  ON public.country_lists(is_public, is_discoverable)
+  WHERE is_public = true AND is_discoverable = true;
+
+-- Policy: Allow anyone to read public country lists
+CREATE POLICY "Anyone can view public country lists"
+  ON public.country_lists
+  FOR SELECT
+  USING (is_public = true);
