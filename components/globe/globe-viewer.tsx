@@ -93,7 +93,13 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
   const [countries, setCountries] = useState<GeoJSON | null>(null)
   const [hoverCountry, setHoverCountry] = useState<GeoFeature | null>(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
-  const [isRotating, setIsRotating] = useState(true)
+  const [isRotating, setIsRotating] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('globe-rotating')
+      return saved !== null ? saved === 'true' : true
+    }
+    return true
+  })
   const [webGLSupported, setWebGLSupported] = useState(true)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -135,13 +141,25 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
     }
   }, [isRotating])
 
+  // Toggle rotation with spacebar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
+        e.preventDefault()
+        handleToggleRotation()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleToggleRotation])
+
   // Initialize globe controls when ready
   const handleGlobeReady = useCallback(() => {
     const initControls = () => {
       if (globeRef.current) {
         const controls = globeRef.current.controls?.()
         if (controls) {
-          controls.autoRotate = true
+          controls.autoRotate = isRotating
           controls.autoRotateSpeed = 0.5
           controls.minDistance = 150 // Closest zoom
           controls.maxDistance = 500 // Farthest zoom
@@ -161,11 +179,12 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
         }
       }, 100)
     }
-  }, [])
+  }, [isRotating])
 
   const handleToggleRotation = useCallback(() => {
     setIsRotating(prev => {
       const newValue = !prev
+      sessionStorage.setItem('globe-rotating', String(newValue))
       // Directly update controls
       if (globeRef.current) {
         const controls = globeRef.current.controls?.()
@@ -330,7 +349,7 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
           size="icon"
           className="h-10 w-10 bg-white/90 hover:bg-white border-gray-200 shadow-lg"
           onClick={handleToggleRotation}
-          title={isRotating ? "Pause rotation" : "Resume rotation"}
+          title={isRotating ? "Pause rotation (Space)" : "Resume rotation (Space)"}
         >
           {isRotating ? (
             <Pause className="h-4 w-4 text-gray-700" />
