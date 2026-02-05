@@ -141,18 +141,6 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
     }
   }, [isRotating])
 
-  // Toggle rotation with spacebar
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
-        e.preventDefault()
-        handleToggleRotation()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleToggleRotation])
-
   // Initialize globe controls when ready
   const handleGlobeReady = useCallback(() => {
     const initControls = () => {
@@ -195,6 +183,18 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
       return newValue
     })
   }, [])
+
+  // Toggle rotation with spacebar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
+        e.preventDefault()
+        handleToggleRotation()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleToggleRotation])
 
   const handleZoomIn = useCallback(() => {
     if (globeRef.current) {
