@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import dynamic from 'next/dynamic'
 import { Plus, Minus, RotateCcw, Pause, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -13,16 +12,6 @@ function isWebGLAvailable(): boolean {
     return false
   }
 }
-
-// Dynamically import react-globe.gl with SSR disabled
-const Globe = dynamic(() => import('react-globe.gl'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-gray-900 rounded-lg">
-      <div className="text-white">Loading globe...</div>
-    </div>
-  ),
-})
 
 interface CountryColorMap {
   [countryCode: string]: string
@@ -88,11 +77,9 @@ function fetchGeoJson(): Promise<GeoJSON> {
 }
 
 export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryClick, className = '' }: GlobeViewerProps) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const globeRef = useRef<any>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [countries, setCountries] = useState<GeoJSON | null>(null)
   const [hoverCountry, setHoverCountry] = useState<GeoFeature | null>(null)
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [isRotating, setIsRotating] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = sessionStorage.getItem('globe-rotating')
@@ -101,10 +88,37 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
     return true
   })
   const [webGLSupported, setWebGLSupported] = useState(true)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [isReady, setIsReady] = useState(false)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rendererRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sceneRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cameraRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const controlsRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const globeRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raycasterRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mouseRef = useRef<any>(null)
+  const animationIdRef = useRef<number>(0)
+  const tooltipRef = useRef<HTMLDivElement | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hoverObjRef = useRef<any>(null)
+  const onCountryClickRef = useRef(onCountryClick)
+  const isRotatingRef = useRef(isRotating)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const selectedSet = useMemo(() => new Set(selectedCountries), [selectedCountries.join(',')])
+  const selectedSetRef = useRef(selectedSet)
+
+  // Keep refs in sync
+  useEffect(() => { onCountryClickRef.current = onCountryClick }, [onCountryClick])
+  useEffect(() => { isRotatingRef.current = isRotating }, [isRotating])
+  useEffect(() => { selectedSetRef.current = selectedSet }, [selectedSet])
 
   useEffect(() => {
     setWebGLSupported(isWebGLAvailable())
@@ -117,55 +131,236 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
       .catch(err => console.error('Error loading country data:', err))
   }, [])
 
-  // Handle resize - use window dimensions for full viewport coverage
+  // Primary init effect — dynamic imports for SSR safety
   useEffect(() => {
-    const updateDimensions = () => {
-      setDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight,
+    if (!containerRef.current) return
+
+    let cancelled = false
+
+    async function init() {
+      const [THREE, { OrbitControls }, ThreeGlobeModule] = await Promise.all([
+        import('three'),
+        import('three/addons/controls/OrbitControls.js'),
+        import('three-globe'),
+      ])
+      const ThreeGlobe = ThreeGlobeModule.default
+
+      if (cancelled || !containerRef.current) return
+
+      const container = containerRef.current
+      const width = container.clientWidth || 800
+      const height = container.clientHeight || 600
+
+      // Renderer
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+      renderer.setSize(width, height)
+      container.appendChild(renderer.domElement)
+      rendererRef.current = renderer
+
+      // Scene
+      const scene = new THREE.Scene()
+      scene.background = null
+      scene.add(new THREE.AmbientLight(0xcccccc, Math.PI))
+      scene.add(new THREE.DirectionalLight(0xffffff, 0.6 * Math.PI))
+      sceneRef.current = scene
+
+      // Camera
+      const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
+      camera.position.z = 300
+      cameraRef.current = camera
+
+      // Globe
+      const globe = new ThreeGlobe()
+        .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
+        .showAtmosphere(true)
+        .atmosphereColor('rgba(129, 140, 248, 0.5)')
+        .atmosphereAltitude(0.18)
+        .polygonSideColor(() => 'rgba(134, 148, 168, 0.4)')
+        .polygonStrokeColor(() => 'rgba(255, 255, 255, 0.25)')
+        .polygonsTransitionDuration(300)
+      scene.add(globe)
+      globeRef.current = globe
+
+      // Controls
+      const controls = new OrbitControls(camera, renderer.domElement)
+      controls.autoRotate = isRotatingRef.current
+      controls.autoRotateSpeed = 0.5
+      controls.minDistance = 150
+      controls.maxDistance = 500
+      controls.enableDamping = true
+      controlsRef.current = controls
+
+      // Raycaster
+      const raycaster = new THREE.Raycaster()
+      const mouse = new THREE.Vector2()
+      raycasterRef.current = raycaster
+      mouseRef.current = mouse
+
+      // Tooltip div
+      const tooltip = document.createElement('div')
+      tooltip.style.position = 'absolute'
+      tooltip.style.pointerEvents = 'none'
+      tooltip.style.display = 'none'
+      tooltip.style.zIndex = '50'
+      container.appendChild(tooltip)
+      tooltipRef.current = tooltip
+
+      // Helper: find polygon object from raycaster intersection
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      function findPolygonObj(obj: any): any {
+        let current = obj
+        while (current) {
+          if (current.__globeObjType === 'polygon') return current
+          current = current.parent
+        }
+        return null
+      }
+
+      // Pointer events on canvas
+      const canvas = renderer.domElement
+
+      canvas.addEventListener('pointermove', (event: PointerEvent) => {
+        const rect = canvas.getBoundingClientRect()
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+
+        raycaster.setFromCamera(mouse, camera)
+        const intersects = raycaster.intersectObjects(globe.children, true)
+
+        let found = null
+        for (const hit of intersects) {
+          const polyObj = findPolygonObj(hit.object)
+          if (polyObj) {
+            found = polyObj
+            break
+          }
+        }
+
+        if (found && found.__data) {
+          const feature = (found.__data.data || found.__data) as GeoFeature
+          hoverObjRef.current = feature
+          const name = getCountryName(feature.properties)
+          const code = getCountryCode(feature.properties)
+          const isSelected = selectedSetRef.current.has(code)
+          tooltip.innerHTML = `
+            <div class="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg">
+              <div class="font-medium">${name}</div>
+              <div class="text-xs text-gray-400">${code}</div>
+              ${isSelected ? '<div class="text-xs text-blue-400 mt-1">Selected</div>' : ''}
+            </div>
+          `
+          tooltip.style.display = 'block'
+          tooltip.style.left = (event.clientX - rect.left + 15) + 'px'
+          tooltip.style.top = (event.clientY - rect.top + 15) + 'px'
+          canvas.style.cursor = 'pointer'
+          setHoverCountry(feature)
+        } else {
+          hoverObjRef.current = null
+          tooltip.style.display = 'none'
+          canvas.style.cursor = 'grab'
+          setHoverCountry(null)
+        }
       })
+
+      canvas.addEventListener('click', () => {
+        if (hoverObjRef.current) {
+          const feature = hoverObjRef.current as GeoFeature
+          const code = getCountryCode(feature.properties)
+          const name = getCountryName(feature.properties)
+          if (code && code !== '-99') {
+            onCountryClickRef.current(code, name)
+          }
+        }
+      })
+
+      // Animation loop
+      function animate() {
+        animationIdRef.current = requestAnimationFrame(animate)
+        controls.update()
+        renderer.render(scene, camera)
+      }
+      animate()
+
+      // ResizeObserver for responsive sizing
+      const resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const { width: w, height: h } = entry.contentRect
+          if (w > 0 && h > 0) {
+            renderer.setSize(w, h)
+            camera.aspect = w / h
+            camera.updateProjectionMatrix()
+          }
+        }
+      })
+      resizeObserver.observe(container)
+
+      setIsReady(true)
+
+      // Store cleanup references
+      ;(container as any).__globeCleanup = () => {
+        cancelAnimationFrame(animationIdRef.current)
+        resizeObserver.disconnect()
+        controls.dispose()
+        renderer.dispose()
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas)
+        if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip)
+      }
     }
 
-    updateDimensions()
-    window.addEventListener('resize', updateDimensions)
-    return () => window.removeEventListener('resize', updateDimensions)
+    init()
+
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(animationIdRef.current)
+      const container = containerRef.current
+      if (container && (container as any).__globeCleanup) {
+        ;(container as any).__globeCleanup()
+        delete (container as any).__globeCleanup
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Update polygon data when countries, selection, colors, or hover changes
+  useEffect(() => {
+    if (!globeRef.current || !countries) return
+
+    const globe = globeRef.current
+    globe
+      .polygonsData(countries.features)
+      .polygonCapColor((obj: object) => {
+        const feature = obj as GeoFeature
+        const countryCode = getCountryCode(feature.properties)
+        if (selectedSet.has(countryCode)) {
+          const customColor = countryColors[countryCode]
+          if (customColor) {
+            const r = parseInt(customColor.slice(1, 3), 16)
+            const g = parseInt(customColor.slice(3, 5), 16)
+            const b = parseInt(customColor.slice(5, 7), 16)
+            return `rgba(${r}, ${g}, ${b}, 0.9)`
+          }
+          return 'rgba(96, 165, 250, 0.9)'
+        }
+        if (hoverCountry && getCountryCode(hoverCountry.properties) === countryCode) {
+          return 'rgba(209, 213, 219, 0.7)'
+        }
+        return 'rgba(134, 148, 168, 0.6)'
+      })
+      .polygonAltitude((obj: object) => {
+        const feature = obj as GeoFeature
+        const countryCode = getCountryCode(feature.properties)
+        if (selectedSet.has(countryCode)) return 0.012
+        if (hoverCountry && getCountryCode(hoverCountry.properties) === countryCode) return 0.012
+        return 0.01
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countries, selectedCountries.join(','), countryColors, hoverCountry, isReady])
 
   // Update rotation when isRotating changes
   useEffect(() => {
-    if (globeRef.current) {
-      const controls = globeRef.current.controls?.()
-      if (controls) {
-        controls.autoRotate = isRotating
-      }
-    }
-  }, [isRotating])
-
-  // Initialize globe controls when ready
-  const handleGlobeReady = useCallback(() => {
-    const initControls = () => {
-      if (globeRef.current) {
-        const controls = globeRef.current.controls?.()
-        if (controls) {
-          controls.autoRotate = isRotating
-          controls.autoRotateSpeed = 0.5
-          controls.minDistance = 150 // Closest zoom
-          controls.maxDistance = 500 // Farthest zoom
-          return true
-        }
-      }
-      return false
-    }
-
-    // Try immediately, then retry a few times if needed
-    if (!initControls()) {
-      let attempts = 0
-      const interval = setInterval(() => {
-        attempts++
-        if (initControls() || attempts >= 10) {
-          clearInterval(interval)
-        }
-      }, 100)
+    if (controlsRef.current) {
+      controlsRef.current.autoRotate = isRotating
     }
   }, [isRotating])
 
@@ -173,12 +368,8 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
     setIsRotating(prev => {
       const newValue = !prev
       sessionStorage.setItem('globe-rotating', String(newValue))
-      // Directly update controls
-      if (globeRef.current) {
-        const controls = globeRef.current.controls?.()
-        if (controls) {
-          controls.autoRotate = newValue
-        }
+      if (controlsRef.current) {
+        controlsRef.current.autoRotate = newValue
       }
       return newValue
     })
@@ -197,104 +388,32 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
   }, [handleToggleRotation])
 
   const handleZoomIn = useCallback(() => {
-    if (globeRef.current) {
-      const camera = globeRef.current.camera?.()
-      if (camera) {
-        const currentDistance = camera.position.length()
-        const newDistance = Math.max(150, currentDistance * 0.8)
-        const scale = newDistance / currentDistance
-        camera.position.multiplyScalar(scale)
-      }
+    if (cameraRef.current) {
+      const camera = cameraRef.current
+      const currentDistance = camera.position.length()
+      const newDistance = Math.max(150, currentDistance * 0.8)
+      const scale = newDistance / currentDistance
+      camera.position.multiplyScalar(scale)
     }
   }, [])
 
   const handleZoomOut = useCallback(() => {
-    if (globeRef.current) {
-      const camera = globeRef.current.camera?.()
-      if (camera) {
-        const currentDistance = camera.position.length()
-        const newDistance = Math.min(500, currentDistance * 1.25)
-        const scale = newDistance / currentDistance
-        camera.position.multiplyScalar(scale)
-      }
+    if (cameraRef.current) {
+      const camera = cameraRef.current
+      const currentDistance = camera.position.length()
+      const newDistance = Math.min(500, currentDistance * 1.25)
+      const scale = newDistance / currentDistance
+      camera.position.multiplyScalar(scale)
     }
   }, [])
 
   const handleResetView = useCallback(() => {
-    if (globeRef.current) {
-      const camera = globeRef.current.camera?.()
-      if (camera) {
-        const currentDistance = camera.position.length()
-        const defaultDistance = 300
-        const scale = defaultDistance / currentDistance
-        camera.position.multiplyScalar(scale)
-      }
-    }
-  }, [])
-
-  const handlePolygonClick = useCallback((polygon: object | null) => {
-    if (polygon && 'properties' in polygon) {
-      const feature = polygon as GeoFeature
-      const countryCode = getCountryCode(feature.properties)
-      const countryName = getCountryName(feature.properties)
-      if (countryCode && countryCode !== '-99') {
-        onCountryClick(countryCode, countryName)
-      }
-    }
-  }, [onCountryClick])
-
-  const getPolygonColor = useCallback((obj: object) => {
-    const feature = obj as GeoFeature
-    const countryCode = getCountryCode(feature.properties)
-    if (selectedSet.has(countryCode)) {
-      // Use custom color if set, with 90% opacity
-      const customColor = countryColors[countryCode]
-      if (customColor) {
-        // Convert hex to rgba
-        const r = parseInt(customColor.slice(1, 3), 16)
-        const g = parseInt(customColor.slice(3, 5), 16)
-        const b = parseInt(customColor.slice(5, 7), 16)
-        return `rgba(${r}, ${g}, ${b}, 0.9)`
-      }
-      return 'rgba(96, 165, 250, 0.9)' // Default blue for selected
-    }
-    if (hoverCountry && getCountryCode(hoverCountry.properties) === countryCode) {
-      return 'rgba(209, 213, 219, 0.7)' // Bright gray for hover
-    }
-    return 'rgba(134, 148, 168, 0.6)' // Brighter default gray
-  }, [selectedSet, countryColors, hoverCountry])
-
-  const getPolygonAltitude = useCallback((obj: object) => {
-    const feature = obj as GeoFeature
-    const countryCode = getCountryCode(feature.properties)
-    if (selectedSet.has(countryCode)) {
-      return 0.012 // Minimal elevation for selected
-    }
-    if (hoverCountry && getCountryCode(hoverCountry.properties) === countryCode) {
-      return 0.012 // Slightly elevated for hover
-    }
-    return 0.01 // Default
-  }, [selectedSet, hoverCountry])
-
-  const getPolygonLabel = useCallback((obj: object) => {
-    const d = obj as GeoFeature
-    const name = getCountryName(d.properties)
-    const code = getCountryCode(d.properties)
-    const isSelected = selectedSet.has(code)
-    return `
-      <div class="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg">
-        <div class="font-medium">${name}</div>
-        <div class="text-xs text-gray-400">${code}</div>
-        ${isSelected ? '<div class="text-xs text-blue-400 mt-1">Selected</div>' : ''}
-      </div>
-    `
-  }, [selectedSet])
-
-  const handlePolygonHover = useCallback((polygon: object | null) => {
-    if (polygon && 'properties' in polygon) {
-      setHoverCountry(polygon as GeoFeature)
-    } else {
-      setHoverCountry(null)
+    if (cameraRef.current) {
+      const camera = cameraRef.current
+      const currentDistance = camera.position.length()
+      const defaultDistance = 300
+      const scale = defaultDistance / currentDistance
+      camera.position.multiplyScalar(scale)
     }
   }, [])
 
@@ -312,35 +431,13 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
     )
   }
 
-  if (!countries) {
-    return (
-      <div className={`w-full h-full flex items-center justify-center bg-gray-900 rounded-lg ${className}`}>
-        <div className="text-white">Loading globe...</div>
-      </div>
-    )
-  }
-
   return (
     <div ref={containerRef} className={`w-full h-full relative ${className}`}>
-      <Globe
-        ref={globeRef}
-        width={dimensions.width || 800}
-        height={dimensions.height || 600}
-        backgroundColor="rgba(0,0,0,0)"
-        globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
-        polygonsData={countries.features}
-        polygonCapColor={getPolygonColor}
-        polygonSideColor={() => 'rgba(134, 148, 168, 0.4)'}
-        polygonStrokeColor={() => 'rgba(255, 255, 255, 0.25)'}
-        polygonAltitude={getPolygonAltitude}
-        polygonLabel={getPolygonLabel}
-        onPolygonClick={handlePolygonClick}
-        onPolygonHover={handlePolygonHover}
-        onGlobeReady={handleGlobeReady}
-        polygonsTransitionDuration={300}
-        atmosphereColor="rgba(129, 140, 248, 0.5)"
-        atmosphereAltitude={0.18}
-      />
+      {!isReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900 rounded-lg z-10">
+          <div className="text-white">Loading globe...</div>
+        </div>
+      )}
 
       {/* Globe Controls */}
       <div className="absolute bottom-6 left-6 flex flex-col gap-2">
