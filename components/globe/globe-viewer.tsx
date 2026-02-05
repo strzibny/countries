@@ -79,14 +79,7 @@ function fetchGeoJson(): Promise<GeoJSON> {
 export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryClick, className = '' }: GlobeViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [countries, setCountries] = useState<GeoJSON | null>(null)
-  const [hoverCountry, setHoverCountry] = useState<GeoFeature | null>(null)
-  const [isRotating, setIsRotating] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('globe-rotating')
-      return saved !== null ? saved === 'true' : true
-    }
-    return true
-  })
+  const [isRotating, setIsRotating] = useState(true)
   const [webGLSupported, setWebGLSupported] = useState(true)
   const [isReady, setIsReady] = useState(false)
 
@@ -108,7 +101,10 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
   const tooltipRef = useRef<HTMLDivElement | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hoverObjRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prevHoverMeshRef = useRef<any>(null)
   const onCountryClickRef = useRef(onCountryClick)
+  const countryColorsRef = useRef(countryColors)
   const isRotatingRef = useRef(isRotating)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,11 +113,16 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
 
   // Keep refs in sync
   useEffect(() => { onCountryClickRef.current = onCountryClick }, [onCountryClick])
+  useEffect(() => { countryColorsRef.current = countryColors }, [countryColors])
   useEffect(() => { isRotatingRef.current = isRotating }, [isRotating])
   useEffect(() => { selectedSetRef.current = selectedSet }, [selectedSet])
 
   useEffect(() => {
     setWebGLSupported(isWebGLAvailable())
+    const saved = sessionStorage.getItem('globe-rotating')
+    if (saved !== null) {
+      setIsRotating(saved === 'true')
+    }
   }, [])
 
   // Load country data (module-level cache avoids re-fetching across navigations)
@@ -217,6 +218,39 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
         return null
       }
 
+      // Helper: set cap material color directly on a polygon mesh (O(1))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      function setCapColor(polyObj: any, r: number, g: number, b: number, a: number) {
+        const mesh = polyObj.children?.[0]
+        const capMat = mesh?.material?.[1]
+        if (capMat) {
+          capMat.color.setRGB(r / 255, g / 255, b / 255)
+          capMat.opacity = a
+          capMat.transparent = a < 1
+        }
+      }
+
+      // Helper: restore a polygon mesh to its non-hover color
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      function restoreCapColor(polyObj: any) {
+        const feature = (polyObj.__data?.data || polyObj.__data) as GeoFeature | undefined
+        if (!feature) return
+        const code = getCountryCode(feature.properties)
+        if (selectedSetRef.current.has(code)) {
+          const custom = countryColorsRef.current[code]
+          if (custom) {
+            const r = parseInt(custom.slice(1, 3), 16)
+            const g = parseInt(custom.slice(3, 5), 16)
+            const b = parseInt(custom.slice(5, 7), 16)
+            setCapColor(polyObj, r, g, b, 0.9)
+          } else {
+            setCapColor(polyObj, 96, 165, 250, 0.9)
+          }
+        } else {
+          setCapColor(polyObj, 134, 148, 168, 0.6)
+        }
+      }
+
       // Pointer events on canvas
       const canvas = renderer.domElement
 
@@ -237,9 +271,19 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
           }
         }
 
+        // Restore previous hover mesh to its normal color
+        if (prevHoverMeshRef.current && prevHoverMeshRef.current !== found) {
+          restoreCapColor(prevHoverMeshRef.current)
+        }
+
         if (found && found.__data) {
           const feature = (found.__data.data || found.__data) as GeoFeature
           hoverObjRef.current = feature
+          prevHoverMeshRef.current = found
+
+          // Apply hover color directly on the mesh material
+          setCapColor(found, 209, 213, 219, 0.7)
+
           const name = getCountryName(feature.properties)
           const code = getCountryCode(feature.properties)
           const isSelected = selectedSetRef.current.has(code)
@@ -254,16 +298,24 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
           tooltip.style.left = (event.clientX - rect.left + 15) + 'px'
           tooltip.style.top = (event.clientY - rect.top + 15) + 'px'
           canvas.style.cursor = 'pointer'
-          setHoverCountry(feature)
         } else {
           hoverObjRef.current = null
+          prevHoverMeshRef.current = null
           tooltip.style.display = 'none'
           canvas.style.cursor = 'grab'
-          setHoverCountry(null)
         }
       })
 
-      canvas.addEventListener('click', () => {
+      let pointerDownPos = { x: 0, y: 0 }
+      canvas.addEventListener('pointerdown', (event: PointerEvent) => {
+        pointerDownPos = { x: event.clientX, y: event.clientY }
+      })
+
+      canvas.addEventListener('click', (event: MouseEvent) => {
+        const dx = event.clientX - pointerDownPos.x
+        const dy = event.clientY - pointerDownPos.y
+        if (dx * dx + dy * dy > 9) return // >3px moved = drag, not click
+
         if (hoverObjRef.current) {
           const feature = hoverObjRef.current as GeoFeature
           const code = getCountryCode(feature.properties)
@@ -322,7 +374,7 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Update polygon data when countries, selection, colors, or hover changes
+  // Update polygon data when countries, selection, or colors change (NOT hover — that's handled directly on mesh materials)
   useEffect(() => {
     if (!globeRef.current || !countries) return
 
@@ -342,20 +394,16 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
           }
           return 'rgba(96, 165, 250, 0.9)'
         }
-        if (hoverCountry && getCountryCode(hoverCountry.properties) === countryCode) {
-          return 'rgba(209, 213, 219, 0.7)'
-        }
         return 'rgba(134, 148, 168, 0.6)'
       })
       .polygonAltitude((obj: object) => {
         const feature = obj as GeoFeature
         const countryCode = getCountryCode(feature.properties)
         if (selectedSet.has(countryCode)) return 0.012
-        if (hoverCountry && getCountryCode(hoverCountry.properties) === countryCode) return 0.012
         return 0.01
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countries, selectedCountries.join(','), countryColors, hoverCountry, isReady])
+  }, [countries, selectedCountries.join(','), countryColors, isReady])
 
   // Update rotation when isRotating changes
   useEffect(() => {
