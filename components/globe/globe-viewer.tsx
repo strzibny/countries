@@ -264,6 +264,16 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
 
         let found = null
         for (const hit of intersects) {
+          // If we hit the globe surface before any polygon, we're over ocean — stop
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let obj: any = hit.object
+          let hitGlobe = false
+          while (obj) {
+            if (obj.__globeObjType === 'globe') { hitGlobe = true; break }
+            obj = obj.parent
+          }
+          if (hitGlobe) break
+
           const polyObj = findPolygonObj(hit.object)
           if (polyObj) {
             found = polyObj

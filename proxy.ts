@@ -2,9 +2,9 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 // Routes that require authentication
-const protectedRoutes = ['/dashboard', '/settings']
+const protectedRoutes = ['/lists', '/settings']
 
-// Routes that should redirect to dashboard if already authenticated
+// Routes that should redirect to lists if already authenticated
 const authRoutes = ['/login', '/register', '/forgot-password']
 
 export async function proxy(request: NextRequest) {
@@ -51,10 +51,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect to dashboard if accessing auth routes while logged in
+  // Redirect to lists if accessing auth routes while logged in
   if (isAuthRoute && user) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = '/lists'
     return NextResponse.redirect(url)
   }
 

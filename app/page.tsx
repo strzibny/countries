@@ -86,6 +86,16 @@ export default function Home() {
     }
   }, [user])
 
+  // Auto-open list from ?list= query param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const listId = params.get('list')
+    if (listId && user && !isAuthLoading) {
+      fetchListDetail(listId)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isAuthLoading])
+
   const fetchLists = async () => {
     setIsLoadingLists(true)
     try {
@@ -366,23 +376,23 @@ export default function Home() {
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-gray-900/80 to-transparent">
         <div className="flex h-16 items-center justify-between px-6">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
-                <Globe className="h-4 w-4 text-white" />
-              </div>
-              <div className="text-left">
-                <span className="text-lg font-semibold text-white">
+            <div className="pt-2">
+              <Link href="/" className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
+                  <Globe className="h-4 w-4 text-white" />
+                </div>
+                <span className="text-xl font-semibold text-white">
                   MyCountryList
                 </span>
-                <a
-                  href="https://x.com/strzibnyj"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block text-xs text-white/60 hover:text-white/80 transition-colors"
-                >
-                  Made by Josef
-                </a>
-              </div>
+              </Link>
+              <a
+                href="https://x.com/strzibnyj"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-white/60 hover:text-white/80 transition-colors"
+              >
+                by Josef
+              </a>
             </div>
             <div className="flex items-center gap-4">
               <Button

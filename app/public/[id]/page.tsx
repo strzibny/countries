@@ -5,14 +5,24 @@ import { useParams } from 'next/navigation'
 import { GlobeViewer } from '@/components/globe/globe-viewer'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
-import { Globe, ChevronRight, X, User, Info, List } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Globe, ChevronRight, X, User, Info, List, LogOut } from 'lucide-react'
 import Link from 'next/link'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { useAuth } from '@/hooks/use-auth'
 
 interface ListCountry {
   id: string
@@ -34,12 +44,18 @@ interface SharedList {
 export default function PublicListPage() {
   const params = useParams()
   const listId = params.id as string
+  const { user, profile, signOut } = useAuth()
 
   const [list, setList] = useState<SharedList | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showPanel, setShowPanel] = useState(false)
   const [showAboutDialog, setShowAboutDialog] = useState(false)
+
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return 'U'
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  }
 
   useEffect(() => {
     async function fetchList() {
@@ -106,23 +122,23 @@ export default function PublicListPage() {
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-gray-900/80 to-transparent">
         <div className="flex h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
-              <Globe className="h-4 w-4 text-white" />
-            </div>
-            <div className="text-left">
-              <span className="text-lg font-semibold text-white">
+          <div className="pt-2">
+            <Link href="/" className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
+                <Globe className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-xl font-semibold text-white">
                 MyCountryList
               </span>
-              <a
-                href="https://x.com/strzibnyj"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-xs text-white/60 hover:text-white/80 transition-colors"
-              >
-                Made by Josef
-              </a>
-            </div>
+            </Link>
+            <a
+              href="https://x.com/strzibnyj"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-white/60 hover:text-white/80 transition-colors"
+            >
+              by Josef
+            </a>
           </div>
           <div className="flex items-center gap-4">
             <Button
@@ -139,11 +155,50 @@ export default function PublicListPage() {
                 Public lists
               </Button>
             </Link>
-            <Link href="/">
-              <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
-                Make your own
-              </Button>
-            </Link>
+            {user ? (
+              <>
+                <Link href="/lists">
+                  <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
+                    <Globe className="h-4 w-4 mr-1" />
+                    My lists
+                  </Button>
+                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || 'User'} />
+                        <AvatarFallback className="bg-white/20 text-white">
+                          {getInitials(profile?.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">{profile?.full_name || 'User'}</p>
+                        <p className="text-xs leading-none text-gray-500">{profile?.email}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="cursor-pointer text-red-600 focus:text-red-600"
+                      onClick={() => signOut()}
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <Link href="/">
+                <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
+                  Make your own
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>

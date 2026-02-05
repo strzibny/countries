@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Globe, Search, Info, MapPin, List, LogOut } from 'lucide-react'
+import { Globe, Search, Info, MapPin, List, LogOut, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -21,19 +21,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useAuth } from '@/hooks/use-auth'
+import { useToast } from '@/hooks/use-toast'
+import { CountryListWithCount } from '@/types/database'
 
-interface PublicList {
-  id: string
-  name: string
-  description: string | null
-  updated_at: string
-  country_count: number
-  owner_name: string
-}
-
-export default function PublicIndexPage() {
-  const { user, profile, signOut } = useAuth()
-  const [lists, setLists] = useState<PublicList[]>([])
+export default function ListsPage() {
+  const { profile, signOut } = useAuth()
+  const { toast } = useToast()
+  const [lists, setLists] = useState<CountryListWithCount[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [showAboutDialog, setShowAboutDialog] = useState(false)
@@ -43,32 +37,46 @@ export default function PublicIndexPage() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   }
 
-  const fetchLists = useCallback(async (query: string) => {
+  const fetchLists = useCallback(async () => {
     try {
-      const params = query ? `?q=${encodeURIComponent(query)}` : ''
-      const response = await fetch(`/api/lists/public${params}`)
+      const response = await fetch('/api/lists')
       if (response.ok) {
         const data = await response.json()
-        setLists(data.lists)
+        setLists(data.lists || [])
       }
     } catch (error) {
-      console.error('Error fetching public lists:', error)
+      console.error('Error fetching lists:', error)
     } finally {
       setIsLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    fetchLists('')
+    fetchLists()
   }, [fetchLists])
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(true)
-      fetchLists(searchQuery)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [searchQuery, fetchLists])
+  const filteredLists = searchQuery
+    ? lists.filter(list =>
+        list.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        list.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : lists
+
+  const handleDeleteList = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm('Are you sure you want to delete this list?')) return
+
+    try {
+      const response = await fetch(`/api/lists/${id}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('Failed to delete list')
+      setLists(lists.filter(list => list.id !== id))
+      toast({ title: 'List deleted', description: 'The list has been deleted' })
+    } catch (error) {
+      console.error('Error deleting list:', error)
+      toast({ title: 'Error', description: 'Failed to delete the list', variant: 'destructive' })
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -108,50 +116,40 @@ export default function PublicIndexPage() {
                 Public lists
               </Button>
             </Link>
-            {user ? (
-              <>
-                <Link href="/lists">
-                  <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
-                    <Globe className="h-4 w-4 mr-1" />
-                    My lists
-                  </Button>
-                </Link>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || 'User'} />
-                        <AvatarFallback className="bg-white/20 text-white">
-                          {getInitials(profile?.full_name)}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
-                    <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{profile?.full_name || 'User'}</p>
-                        <p className="text-xs leading-none text-gray-500">{profile?.email}</p>
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="cursor-pointer text-red-600 focus:text-red-600"
-                      onClick={() => signOut()}
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Log out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            ) : (
-              <Link href="/">
-                <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900">
-                  Make your own
+            <Link href="/lists">
+              <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-gray-900 border-white/40">
+                <Globe className="h-4 w-4 mr-1" />
+                My lists
+              </Button>
+            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || 'User'} />
+                    <AvatarFallback className="bg-white/20 text-white">
+                      {getInitials(profile?.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
                 </Button>
-              </Link>
-            )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{profile?.full_name || 'User'}</p>
+                    <p className="text-xs leading-none text-gray-500">{profile?.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="cursor-pointer text-red-600 focus:text-red-600"
+                  onClick={() => signOut()}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -159,9 +157,9 @@ export default function PublicIndexPage() {
       {/* Content */}
       <div className="max-w-5xl mx-auto px-6 py-12">
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-white mb-3">Explore country lists</h1>
+          <h1 className="text-3xl font-bold text-white mb-3">My lists</h1>
           <p className="text-white/60 max-w-lg mx-auto">
-            Browse country lists shared by the community. Click any list to view it on the interactive globe.
+            Create and manage your country lists. Click any list to view it on the interactive globe.
           </p>
         </div>
 
@@ -181,16 +179,16 @@ export default function PublicIndexPage() {
           <div className="text-center py-16">
             <div className="text-white/60">Loading...</div>
           </div>
-        ) : lists.length === 0 ? (
+        ) : filteredLists.length === 0 ? (
           <div className="text-center py-16">
             <MapPin className="h-12 w-12 text-white/20 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-white mb-2">
-              {searchQuery ? 'No lists found' : 'No public lists yet'}
+              {searchQuery ? 'No lists found' : 'No lists yet'}
             </h3>
             <p className="text-white/60 mb-6">
               {searchQuery
                 ? 'Try a different search term'
-                : 'Be the first to share a country list with the community'}
+                : 'Create your first country list to get started'}
             </p>
             {!searchQuery && (
               <Link href="/">
@@ -200,20 +198,26 @@ export default function PublicIndexPage() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {lists.map((list) => (
+            {filteredLists.map((list) => (
               <Link
                 key={list.id}
-                href={`/public/${list.id}`}
-                className="block rounded-lg border border-white/10 bg-white/5 p-5 hover:bg-white/10 transition-colors"
+                href={`/?list=${list.id}`}
+                className="group block rounded-lg border border-white/10 bg-white/5 p-5 hover:bg-white/10 transition-colors relative"
               >
-                <h3 className="font-semibold text-white truncate">{list.name}</h3>
+                <h3 className="font-semibold text-white truncate pr-8">{list.name}</h3>
                 {list.description && (
                   <p className="text-sm text-white/60 mt-1 line-clamp-2">{list.description}</p>
                 )}
                 <div className="flex items-center gap-3 mt-3 text-xs text-white/40">
                   <span>{list.country_count} {list.country_count === 1 ? 'country' : 'countries'}</span>
-                  <span>by {list.owner_name}</span>
+                  <span>Updated {new Date(list.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                 </div>
+                <button
+                  className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity text-white/30 hover:text-red-400"
+                  onClick={(e) => handleDeleteList(list.id, e)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </Link>
             ))}
           </div>
