@@ -249,10 +249,10 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
     const feature = obj as GeoFeature
     const countryCode = getCountryCode(feature.properties)
     if (selectedSet.has(countryCode)) {
-      return 0.04 // Elevated for selected
+      return 0.012 // Minimal elevation for selected
     }
     if (hoverCountry && getCountryCode(hoverCountry.properties) === countryCode) {
-      return 0.02 // Slightly elevated for hover
+      return 0.012 // Slightly elevated for hover
     }
     return 0.01 // Default
   }, [selectedSet, hoverCountry])
