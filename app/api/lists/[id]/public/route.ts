@@ -18,13 +18,15 @@ export async function GET(
         name,
         description,
         is_public,
+        groups,
         created_at,
         list_countries (
           id,
           country_code,
           country_name,
           notes,
-          color
+          color,
+          group_id
         )
       `)
       .eq('id', id)
