@@ -9,7 +9,7 @@ interface GroupFilterProps {
 }
 
 export function GroupFilter({ groups, activeGroup, onGroupChange }: GroupFilterProps) {
-  if (groups.length < 2) return null
+  if (groups.length < 1) return null
 
   return (
     <div className="absolute left-6 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-2 max-h-[60vh] overflow-y-auto rounded-lg">
