@@ -22,6 +22,7 @@ interface GlobeViewerProps {
   countryColors?: CountryColorMap
   onCountryClick: (countryCode: string, countryName: string) => void
   className?: string
+  readOnly?: boolean
 }
 
 interface GeoProperties {
@@ -76,7 +77,7 @@ function fetchGeoJson(): Promise<GeoJSON> {
   return geoJsonPromise
 }
 
-export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryClick, className = '' }: GlobeViewerProps) {
+export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryClick, className = '', readOnly = false }: GlobeViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [countries, setCountries] = useState<GeoJSON | null>(null)
   const [isRotating, setIsRotating] = useState(true)
@@ -106,6 +107,7 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
   const onCountryClickRef = useRef(onCountryClick)
   const countryColorsRef = useRef(countryColors)
   const isRotatingRef = useRef(isRotating)
+  const readOnlyRef = useRef(readOnly)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const selectedSet = useMemo(() => new Set(selectedCountries), [selectedCountries.join(',')])
@@ -115,6 +117,7 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
   useEffect(() => { onCountryClickRef.current = onCountryClick }, [onCountryClick])
   useEffect(() => { countryColorsRef.current = countryColors }, [countryColors])
   useEffect(() => { isRotatingRef.current = isRotating }, [isRotating])
+  useEffect(() => { readOnlyRef.current = readOnly }, [readOnly])
   useEffect(() => { selectedSetRef.current = selectedSet }, [selectedSet])
 
   useEffect(() => {
@@ -255,6 +258,8 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
       const canvas = renderer.domElement
 
       canvas.addEventListener('pointermove', (event: PointerEvent) => {
+        if (readOnlyRef.current) return
+
         const rect = canvas.getBoundingClientRect()
         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
@@ -322,6 +327,8 @@ export function GlobeViewer({ selectedCountries, countryColors = {}, onCountryCl
       })
 
       canvas.addEventListener('click', (event: MouseEvent) => {
+        if (readOnlyRef.current) return
+
         const dx = event.clientX - pointerDownPos.x
         const dy = event.clientY - pointerDownPos.y
         if (dx * dx + dy * dy > 9) return // >3px moved = drag, not click

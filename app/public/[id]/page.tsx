@@ -208,7 +208,8 @@ export default function PublicListPage() {
         <GlobeViewer
           selectedCountries={selectedCountries}
           countryColors={countryColors}
-          onCountryClick={() => {}} // Read-only
+          onCountryClick={() => {}}
+          readOnly
           className="absolute inset-0"
         />
 
