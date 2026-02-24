@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { GlobeViewer } from '@/components/globe/globe-viewer'
+import { GroupFilter } from '@/components/globe/group-filter'
 import { CountryPanel } from '@/components/globe/country-panel'
 import { SavePromptDialog } from '@/components/globe/save-prompt-dialog'
 import { AuthDialog } from '@/components/auth/auth-dialog'
@@ -74,6 +75,7 @@ export default function Home() {
 
   // Group selector popup state
   const [pendingCountry, setPendingCountry] = useState<{ code: string; name: string } | null>(null)
+  const [activeGroup, setActiveGroup] = useState<string | null>(null)
 
   // Fetch lists when user logs in
   useEffect(() => {
@@ -130,6 +132,7 @@ export default function Home() {
           }))
         )
         setEditingListId(listId)
+        setActiveGroup(null)
         setPanelView('list-detail')
       }
     } catch (error) {
@@ -344,6 +347,7 @@ export default function Home() {
     setEditingListId(null)
     setSelectedList(null)
     setEditSelections([])
+    setActiveGroup(null)
     clearSelections()
     setPanelView('none')
     toast({ title: 'Start selecting countries for your new list' })
@@ -353,23 +357,33 @@ export default function Home() {
     setEditingListId(null)
     setSelectedList(null)
     setEditSelections([])
+    setActiveGroup(null)
     setPanelView('lists')
   }
 
   // Determine which countries to show on globe
+  const allSelections = editingListId ? editSelections : selections
+  const filteredSelections = useMemo(
+    () => activeGroup ? allSelections.filter(s => s.group_id === activeGroup) : allSelections,
+    [allSelections, activeGroup]
+  )
+
   const displayedCountries = useMemo(
-    () => (editingListId ? editSelections : selections).map(s => s.country_code),
-    [editingListId, editSelections, selections]
+    () => filteredSelections.map(s => s.country_code),
+    [filteredSelections]
   )
 
   // Build color map for globe
   const countryColors = useMemo(
-    () => (editingListId ? editSelections : selections).reduce((acc, s) => {
+    () => filteredSelections.reduce((acc, s) => {
       acc[s.country_code] = s.color
       return acc
     }, {} as Record<string, string>),
-    [editingListId, editSelections, selections]
+    [filteredSelections]
   )
+
+  // Active groups for the filter
+  const activeGroups = editingListId ? editGroups : groups
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-gray-900">
@@ -480,6 +494,12 @@ export default function Home() {
           countryColors={countryColors}
           onCountryClick={handleCountryClick}
           className="absolute inset-0"
+        />
+
+        <GroupFilter
+          groups={activeGroups}
+          activeGroup={activeGroup}
+          onGroupChange={setActiveGroup}
         />
 
         {/* Floating info panel (collapsed) - for new selections only */}
